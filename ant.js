@@ -14,6 +14,8 @@ export class Ant{
     this.state='idle';
     this.ticks=0;
     this.carrying=null;
+    this.dropX=0;
+    this.dropY=0;
     this.pherTimer=0;
     this.scanCountdown=Math.floor(Math.random()*CONFIG.HEAVY_SCAN_INTERVAL);
     this.prevX=x;
@@ -74,14 +76,24 @@ export class Ant{
       if(dist2T(this.x,this.y,this.nest.x,this.nest.y)<400){
         if(this.carrying==='food'){
           this.nest.stock++;
+          this.carrying=null;
+          this.pherTimer=0;
+          this.state='explore';
+          this.ticks=CONFIG.POST_RETURN_WANDER;
         }else if(this.carrying==='stone'){
           const a=Math.random()*Math.PI*2;
           const d=CONFIG.STONE_DROP_MIN+Math.random()*(CONFIG.STONE_DROP_MAX-CONFIG.STONE_DROP_MIN);
-          const dx=Math.cos(a)*d,dy=Math.sin(a)*d;
-          const x=mod(this.nest.x+dx,canvas.width);
-          const y=mod(this.nest.y+dy,canvas.height);
-          piles.push(new ResourcePile(x,y,1,'stone','rgba(200,200,200,0.9)'));
+          this.dropX=mod(this.nest.x+Math.cos(a)*d,canvas.width);
+          this.dropY=mod(this.nest.y+Math.sin(a)*d,canvas.height);
+          this.state='dump';
         }
+      }
+    }
+    if(this.state==='dump'){
+      const dx=dxT(this.x,this.dropX),dy=dyT(this.y,this.dropY);
+      this.angle+=wrapAngle(Math.atan2(dy,dx)-this.angle)*CONFIG.NEST_ATTRACTION_RETURN;
+      if(dx*dx+dy*dy<400){
+        piles.push(new ResourcePile(this.dropX,this.dropY,1,'stone','rgba(200,200,200,0.9)'));
         this.carrying=null;
         this.pherTimer=0;
         this.state='explore';

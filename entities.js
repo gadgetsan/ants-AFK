@@ -134,7 +134,10 @@ export class Obstacle{
       const t=Math.max(0,Math.min(1,((ant.x-this.x1)*vx+(ant.y-this.y1)*vy)/len2));
       const px=this.x1+vx*t,py=this.y1+vy*t;
       const dx=dxT(ant.x,px),dy=dyT(ant.y,py);
-      near=dx*dx+dy*dy<(this.w/2+CONFIG.DIG_DETECTION)*(this.w/2+CONFIG.DIG_DETECTION);
+      const dist2=dx*dx+dy*dy;
+      near=dist2<(this.w/2+CONFIG.DIG_DETECTION)*(this.w/2+CONFIG.DIG_DETECTION);
+      const inHole=this.holes.some(h=>t>=h.start&&t<=h.end&&dist2<(this.w/2)*(this.w/2));
+      if(inHole) near=false;
       desired=Math.atan2(dy,dx)+Math.PI;
       hitT=t;
     }
