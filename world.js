@@ -53,6 +53,17 @@ export function senseRoad(x,y){
   return{best,dir};
 }
 export function decayRoads(){for(let i=0;i<roads.length;i++)roads[i]*=CONFIG.ROAD_DECAY;}
+export function drawRoads(){
+  for(let i=0;i<roads.length;i++){
+    const v=roads[i];
+    if(v>0.05){
+      const x=(i%roadW)*CONFIG.ROAD_CELL;
+      const y=Math.floor(i/roadW)*CONFIG.ROAD_CELL;
+      ctx.fillStyle=`rgba(100,100,100,${v})`;
+      ctx.fillRect(x,y,CONFIG.ROAD_CELL,CONFIG.ROAD_CELL);
+    }
+  }
+}
 
 function pherIdx(x,y){
   const xi=Math.floor(mod(x,canvas.width)/CONFIG.PHER_CELL);
@@ -74,3 +85,14 @@ export function sensePheromone(x,y){
   return{best,dir};
 }
 export function decayPheromones(){for(let i=0;i<pheromones.length;i++)pheromones[i]*=CONFIG.PHER_DECAY;}
+export function drawPheromones(){
+  for(let i=0;i<pheromones.length;i++){
+    const v=pheromones[i];
+    if(v>0.05){
+      const x=(i%pherW)*CONFIG.PHER_CELL;
+      const y=Math.floor(i/pherW)*CONFIG.PHER_CELL;
+      ctx.fillStyle=`rgba(255,50,50,${v})`;
+      ctx.fillRect(x,y,CONFIG.PHER_CELL,CONFIG.PHER_CELL);
+    }
+  }
+}

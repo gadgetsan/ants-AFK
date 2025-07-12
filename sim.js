@@ -1,6 +1,7 @@
 import {CONFIG} from './config.js';
-import {ctx,canvas,decayRoads,decayPheromones} from './world.js';
-import {Faction,Nest,ResourcePile,Obstacle,Ant} from './entities.js';
+import {ctx,canvas,decayRoads,decayPheromones,drawRoads,drawPheromones,mod} from './world.js';
+import {Faction,Nest,ResourcePile,Obstacle} from './entities.js';
+import {Ant} from './ant.js';
 
 export class Sim{
   constructor(){
@@ -58,7 +59,17 @@ export class Sim{
   }
   buildObstacles(){
     const arr=[];
-    for(let i=0;i<CONFIG.OBSTACLE_COUNT;i++){
+    const lineCount=Math.floor(CONFIG.OBSTACLE_COUNT*0.7);
+    for(let i=0;i<lineCount;i++){
+      const x1=Math.random()*canvas.width;
+      const y1=Math.random()*canvas.height;
+      const len=CONFIG.OBSTACLE_MIN_RADIUS+Math.random()*(CONFIG.OBSTACLE_MAX_RADIUS-CONFIG.OBSTACLE_MIN_RADIUS)*2;
+      const a=Math.random()*Math.PI*2;
+      const x2=mod(x1+Math.cos(a)*len,canvas.width);
+      const y2=mod(y1+Math.sin(a)*len,canvas.height);
+      arr.push(new Obstacle(x1,y1,3,'line',x2,y2));
+    }
+    for(let i=lineCount;i<CONFIG.OBSTACLE_COUNT;i++){
       const r=CONFIG.OBSTACLE_MIN_RADIUS+Math.random()*(CONFIG.OBSTACLE_MAX_RADIUS-CONFIG.OBSTACLE_MIN_RADIUS);
       arr.push(new Obstacle(Math.random()*canvas.width,Math.random()*canvas.height,r));
     }
@@ -71,6 +82,7 @@ export class Sim{
     decayPheromones();
     this.ants.forEach(a=>a.update(this.ants,this.piles,this.obstacles,ratio));
     this.piles=this.piles.filter(p=>!p.empty);
+    this.obstacles=this.obstacles.filter(o=>!o.removed);
     const fCount=this.piles.filter(p=>p.type==='food').length;
     const sCount=this.piles.filter(p=>p.type==='stone').length;
     if(fCount<CONFIG.FOOD_PILES*0.8) this.piles.push(new ResourcePile(Math.random()*canvas.width,Math.random()*canvas.height,CONFIG.FOOD_PILE_CAPACITY,'food','rgba(255,215,0,0.9)'));
@@ -79,6 +91,8 @@ export class Sim{
   draw(){
     ctx.fillStyle=`rgba(17,17,17,${CONFIG.TRAIL_FADE})`;
     ctx.fillRect(0,0,canvas.width,canvas.height);
+    drawRoads();
+    drawPheromones();
     this.obstacles.forEach(o=>o.draw());
     this.piles.forEach(p=>p.draw());
     this.nests.forEach(n=>n.draw());
