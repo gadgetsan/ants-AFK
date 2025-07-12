@@ -67,6 +67,7 @@ export class Obstacle{
       Object.assign(this,{x,y,r});
     }else{
       Object.assign(this,{x1:x,y1:y,x2,y2,w:r});
+      this.holes=[];
     }
     this.stone=(type==='circle'?r*5:Math.hypot(x2-x,y2-y));
     this.removed=false;
@@ -80,14 +81,49 @@ export class Obstacle{
     }else{
       ctx.strokeStyle="#444";
       ctx.lineWidth=this.w;
+      const segs=[];
+      let last=0;
+      const sorted=this.holes.sort((a,b)=>a.start-b.start);
+      for(const h of sorted){
+        if(h.start>last) segs.push([last,h.start]);
+        last=Math.max(last,h.end);
+      }
+      if(last<1) segs.push([last,1]);
       ctx.beginPath();
-      ctx.moveTo(this.x1,this.y1);
-      ctx.lineTo(this.x2,this.y2);
+      for(const s of segs){
+        const sx=this.x1+(this.x2-this.x1)*s[0];
+        const sy=this.y1+(this.y2-this.y1)*s[0];
+        const ex=this.x1+(this.x2-this.x1)*s[1];
+        const ey=this.y1+(this.y2-this.y1)*s[1];
+        ctx.moveTo(sx,sy);
+        ctx.lineTo(ex,ey);
+      }
       ctx.stroke();
+    }
+  }
+  addHole(start,end){
+    start=Math.max(0,start); end=Math.min(1,end);
+    if(start>=end) return;
+    const newH={start,end};
+    const merged=[];
+    for(const h of this.holes){
+      if(end<h.start||start>h.end){
+        merged.push(h);
+      }else{
+        start=Math.min(start,h.start);
+        end=Math.max(end,h.end);
+      }
+    }
+    merged.push({start,end});
+    merged.sort((a,b)=>a.start-b.start);
+    this.holes=merged;
+    if(this.holes.length===1&&this.holes[0].start<=0&&this.holes[0].end>=1){
+      this.removed=true;
     }
   }
   avoid(ant,forceDig=false){
     let near=false,desired;
+    let hitT=0;
     if(this.type==='circle'){
       const dx=dxT(ant.x,this.x),dy=dyT(ant.y,this.y);
       near=dx*dx+dy*dy<(this.r+CONFIG.DIG_DETECTION)*(this.r+CONFIG.DIG_DETECTION);
@@ -100,6 +136,7 @@ export class Obstacle{
       const dx=dxT(ant.x,px),dy=dyT(ant.y,py);
       near=dx*dx+dy*dy<(this.w/2+CONFIG.DIG_DETECTION)*(this.w/2+CONFIG.DIG_DETECTION);
       desired=Math.atan2(dy,dx)+Math.PI;
+      hitT=t;
     }
     if(near){
       ant.angle+=wrapAngle(desired-ant.angle)*0.5;
@@ -108,9 +145,13 @@ export class Obstacle{
         ant.carrying='stone';
         ant.state='return';
         ant.pherTimer=CONFIG.PHER_DURATION;
-        if(this.type==='circle')this.r=Math.max(2,this.r-CONFIG.DIG_AMOUNT);
-        else this.w=Math.max(1,this.w-CONFIG.DIG_AMOUNT);
-        if(this.stone<=0)this.removed=true;
+        if(this.type==='circle'){
+          this.r=Math.max(2,this.r-CONFIG.DIG_AMOUNT);
+          if(this.r<=2) this.removed=true;
+        }else{
+          this.addHole(hitT-CONFIG.DIG_HOLE/2,hitT+CONFIG.DIG_HOLE/2);
+        }
+        if(this.stone<=0) this.removed=true;
       }
     }
   }
