@@ -1,6 +1,6 @@
 import {CONFIG} from './config.js';
 import {ctx,canvas,decayRoads,decayPheromones,drawRoads,drawPheromones,
-        drawObstacles,updateObstacleGrid,updateResourceGrid,mod} from './world.js';
+        drawObstacles,updateObstacleGrid,consumeObstacleDirty,markObstacleDirty,mod} from './world.js';
 import {Faction,Nest,ResourcePile,Obstacle} from './entities.js';
 import {Ant} from './ant.js';
 
@@ -21,7 +21,6 @@ export class Sim{
     this.piles=this.buildPiles();
     this.obstacles=this.buildObstacles();
     updateObstacleGrid(this.obstacles);
-    updateResourceGrid(this.piles);
   }
   // create nests arranged around the centre
   buildNests(){
@@ -94,9 +93,10 @@ export class Sim{
     decayRoads();
     decayPheromones();
     // remove dug-out obstacles before ants react to them
+    const before=this.obstacles.length;
     this.obstacles=this.obstacles.filter(o=>!o.removed);
-    updateObstacleGrid(this.obstacles);
-    updateResourceGrid(this.piles);
+    if(this.obstacles.length!==before) markObstacleDirty();
+    if(consumeObstacleDirty()) updateObstacleGrid(this.obstacles);
     this.ants.forEach(a=>a.update(this.ants,this.piles,this.obstacles,ratio));
     this.piles=this.piles.filter(p=>!p.empty);
     const fCount=this.piles.filter(p=>p.type==='food').length;
@@ -107,7 +107,6 @@ export class Sim{
     if(sCount<CONFIG.STONE_PILES*0.8){
       this.piles.push(new ResourcePile(Math.random()*canvas.width,Math.random()*canvas.height,CONFIG.STONE_PILE_CAPACITY,'stone','rgba(200,200,200,0.9)'));
     }
-    updateResourceGrid(this.piles);
   }
   // render the entire simulation state to the canvas
   draw(){

@@ -1,6 +1,6 @@
 import {CONFIG} from './config.js';
 import {canvas,ctx,wrapAngle,mod,dxT,dyT,dist2T,
-        addResource,removeResource,updateObstacleGrid,isBlocked} from './world.js';
+        addResource,removeResource,markObstacleDirty,isBlocked} from './world.js';
 
 // ---------------------------------------------------------------------------
 // Game entity helpers
@@ -139,7 +139,7 @@ export class Obstacle{
     if(this.holes.length===1&&this.holes[0].start<=0&&this.holes[0].end>=1){
       this.removed=true;
     }
-    updateObstacleGrid([this]);
+    markObstacleDirty();
   }
   // steer the ant away from the obstacle and optionally dig
   avoid(ant,forceDig=false){
@@ -188,7 +188,7 @@ export class Obstacle{
         }else{
           this.addHole(hitT-CONFIG.DIG_HOLE/2,hitT+CONFIG.DIG_HOLE/2);
         }
-        updateObstacleGrid([this]);
+        markObstacleDirty();
         if(this.stone<=0) this.removed=true;
       }
     }

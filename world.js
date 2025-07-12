@@ -10,6 +10,7 @@ export const ctx=canvas.getContext('2d');
 // unified world grid -------------------------------------------------------
 let gridW,gridH;
 let roads,pherFood,pherStone,obstacles,resFood,resStone;
+let obstacleDirty=false;
 
 function initGrid(){
   gridW=Math.ceil(canvas.width/CONFIG.GRID_CELL);
@@ -27,6 +28,8 @@ export function resize(){
   canvas.width=innerWidth;
   canvas.height=innerHeight;
   initGrid();
+  obstacleDirty=true;
+  dispatchEvent(new Event('worldResized'));
 }
 resize();
 addEventListener('resize',resize);
@@ -201,6 +204,17 @@ export function updateObstacleGrid(obs){
   for(const ob of obs){
     if(ob.type==='circle') markCircle(ob); else markLine(ob);
   }
+  obstacleDirty=false;
+}
+
+export function markObstacleDirty(){
+  obstacleDirty=true;
+}
+
+export function consumeObstacleDirty(){
+  const d=obstacleDirty;
+  obstacleDirty=false;
+  return d;
 }
 
 export function isBlocked(x,y){
