@@ -1,9 +1,14 @@
-import {canvas} from './world.js';
+import {canvas,updateObstacleGrid,updateResourceGrid} from './world.js';
 import {CONFIG} from './config.js';
 import {Sim} from './sim.js';
 import {ResourcePile} from './entities.js';
 
 const sim=new Sim();
+
+addEventListener('worldResized',()=>{
+  updateObstacleGrid(sim.obstacles);
+  updateResourceGrid(sim.piles);
+});
 
 canvas.addEventListener('click',e=>{
   const r=canvas.getBoundingClientRect();

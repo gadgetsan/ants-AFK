@@ -1,5 +1,7 @@
 import {CONFIG} from './config.js';
-import {canvas,ctx,wrapAngle,mod,dxT,dyT,dist2T} from './world.js';
+import {canvas,ctx,wrapAngle,mod,dxT,dyT,dist2T,
+        addResource,removeResource,markObstacleDirty,isBlocked,
+        gridIdx,findResourceNear} from './world.js';
 
 // ---------------------------------------------------------------------------
 // Game entity helpers
@@ -29,45 +31,46 @@ export class ResourcePile{
   // Generic pile of resources that ants can collect
   constructor(x,y,cap,type,color){
     Object.assign(this,{x,y,type,color});
-    this.chunks=[];
+    this.cells=new Map(); // grid index -> count
+    this.count=0;
     const R=CONFIG.FOOD_BASE_RADIUS;
-    while(this.chunks.length<cap){
+    while(this.count<cap){
       const r=Math.sqrt(Math.random())*R;
       const t=Math.random()*Math.PI*2;
-      this.chunks.push({ox:Math.round(r*Math.cos(t)),oy:Math.round(r*Math.sin(t))});
+      const ox=Math.round(r*Math.cos(t));
+      const oy=Math.round(r*Math.sin(t));
+      const cx=mod(x+ox,canvas.width);
+      const cy=mod(y+oy,canvas.height);
+      const idx=gridIdx(cx,cy);
+      this.cells.set(idx,(this.cells.get(idx)||0)+1);
+      this.count++;
+      addResource(cx,cy,type);
     }
   }
-  get empty(){return this.chunks.length===0;}
+  get empty(){return this.count===0;}
   // remove a chunk near (x,y)
   takeNear(x,y,rad){
-    if(this.empty)return false;
-    const r2=rad*rad;
-    for(let i=0;i<this.chunks.length;i++){
-      const cx=mod(this.x+this.chunks[i].ox,canvas.width);
-      const cy=mod(this.y+this.chunks[i].oy,canvas.height);
-      if(dist2T(x,y,cx,cy)<=r2){
-        this.chunks.splice(i,1);
-        return true;
-      }
-    }
-    return false;
+    if(this.empty) return false;
+    const res=findResourceNear(x,y,rad,this.type);
+    if(!res) return false;
+    const count=this.cells.get(res.idx);
+    if(!count) return false;
+    this.cells.set(res.idx,count-1);
+    if(count-1<=0) this.cells.delete(res.idx);
+    this.count--;
+    removeResource(res.cx,res.cy,this.type);
+    return true;
   }
   // find any chunk near (x,y)
   detectChunk(x,y,rad){
-    const r2=rad*rad;
-    for(const ch of this.chunks){
-      const cx=mod(this.x+ch.ox,canvas.width);
-      const cy=mod(this.y+ch.oy,canvas.height);
-      if(dist2T(x,y,cx,cy)<=r2)return{cx,cy};
-    }
+    const res=findResourceNear(x,y,rad,this.type);
+    if(!res) return null;
+    if(this.cells.has(res.idx)) return {cx:res.cx,cy:res.cy};
     return null;
   }
   // render each resource chunk
   draw(){
-    ctx.fillStyle=this.color;
-    for(const ch of this.chunks){
-      ctx.fillRect(mod(this.x+ch.ox,canvas.width),mod(this.y+ch.oy,canvas.height),1,1);
-    }
+    // resources now drawn via drawResources in world.js
   }
 }
 
@@ -134,10 +137,23 @@ export class Obstacle{
     if(this.holes.length===1&&this.holes[0].start<=0&&this.holes[0].end>=1){
       this.removed=true;
     }
+    markObstacleDirty();
   }
   // steer the ant away from the obstacle and optionally dig
   avoid(ant,forceDig=false){
     if(this.removed) return;
+    const cell=CONFIG.GRID_CELL;
+    let gridNear=false;
+    for(let dx=-1;dx<=1;dx++){
+      for(let dy=-1;dy<=1;dy++){
+        const x=mod(ant.x+dx*cell,canvas.width);
+        const y=mod(ant.y+dy*cell,canvas.height);
+        if(isBlocked(x,y)){ gridNear=true; break; }
+      }
+      if(gridNear) break;
+    }
+    if(!gridNear) return;
+
     let near=false,desired;
     let hitT=0;
     if(this.type==='circle'){
@@ -170,6 +186,7 @@ export class Obstacle{
         }else{
           this.addHole(hitT-CONFIG.DIG_HOLE/2,hitT+CONFIG.DIG_HOLE/2);
         }
+        markObstacleDirty();
         if(this.stone<=0) this.removed=true;
       }
     }
