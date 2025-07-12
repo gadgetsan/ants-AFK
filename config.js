@@ -17,15 +17,15 @@ export const CONFIG={
   // Nest attraction/repulsion --------------------------------------------
   NEST_ATTRACTION_IDLE:0.02,
   NEST_ATTRACTION_RETURN:0.08,
-  NEST_REPEL_IDLE:0.02,
-  NEST_REPEL_EXPLORING:0.03,
+  NEST_REPEL_IDLE:0.05,
+  NEST_REPEL_EXPLORING:0.06,
 
   // Visual fade -----------------------------------------------------------
   TRAIL_FADE:0.18,
 
   // Exploration -----------------------------------------------------------
-  EXPLORE_MAX_RATIO:0.20,
-  EXPLORE_CHANCE:0.001,
+  EXPLORE_MAX_RATIO:0.35,
+  EXPLORE_CHANCE:0.005,
   EXPLORE_TIME_MIN:1200,
   EXPLORE_TIME_MAX:4800,
 
@@ -58,16 +58,16 @@ export const CONFIG={
 
   // Misc -----------------------------------------------------------------
   POST_RETURN_WANDER:400,
-  FOOD_PICKUP_RADIUS:4,
-  FOOD_DETECT_RADIUS:38,
+  FOOD_PICKUP_RADIUS:5,
+  FOOD_DETECT_RADIUS:50,
   FOOD_BASE_RADIUS:18,
   HEAVY_SCAN_INTERVAL:3,
   PHER_DURATION:600,           // how long ants emit pheromones while carrying
-  STUCK_THRESHOLD:40,          // ticks before ant starts digging
+  STUCK_THRESHOLD:20,          // ticks before ant starts digging
 
   // Digging ---------------------------------------------------------------
-  DIG_DETECTION:4,             // distance from obstacle edge before digging
-  DIG_AMOUNT:2,                // amount removed from obstacle per dig
+  DIG_DETECTION:6,             // distance from obstacle edge before digging
+  DIG_AMOUNT:3,                // amount removed from obstacle per dig
   DIG_HOLE:0.05,               // proportional hole size when digging lines
   STONE_DROP_MIN:300,
   STONE_DROP_MAX:500,
