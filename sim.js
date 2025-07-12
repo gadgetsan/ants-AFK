@@ -20,6 +20,7 @@ export class Sim{
     this.piles=this.buildPiles();
     this.obstacles=this.buildObstacles();
   }
+  // create nests arranged around the centre
   buildNests(){
     const arr=[],m=110;
     this.factions.forEach((f,i)=>{
@@ -32,6 +33,7 @@ export class Sim{
     });
     return arr;
   }
+  // create ant instances distributed around their nests
   buildAnts(){
     const a=[];
     for(let i=0;i<CONFIG.ANT_COUNT;i++){
@@ -42,6 +44,7 @@ export class Sim{
     }
     return a;
   }
+  // randomly scatter resource piles across the map
   buildPiles(){
     const arr=[];
     for(let i=0;i<CONFIG.FOOD_PILES;i++){
@@ -62,6 +65,7 @@ export class Sim{
     }
     return arr;
   }
+  // generate mostly line-shaped obstacles
   buildObstacles(){
     const arr=[];
     const lineCount=Math.floor(CONFIG.OBSTACLE_COUNT*0.9);
@@ -80,6 +84,7 @@ export class Sim{
     }
     return arr;
   }
+  // progress the simulation one tick
   update(){
     const explorers=this.ants.filter(a=>a.state==='explore').length;
     const ratio=explorers/this.ants.length;
@@ -94,8 +99,8 @@ export class Sim{
     if(fCount<CONFIG.FOOD_PILES*0.8) this.piles.push(new ResourcePile(Math.random()*canvas.width,Math.random()*canvas.height,CONFIG.FOOD_PILE_CAPACITY,'food','rgba(255,215,0,0.9)'));
     if(sCount<CONFIG.STONE_PILES*0.8) this.piles.push(new ResourcePile(Math.random()*canvas.width,Math.random()*canvas.height,CONFIG.STONE_PILE_CAPACITY,'stone','rgba(200,200,200,0.9)'));
   }
+  // render the entire simulation state to the canvas
   draw(){
-    // render the entire simulation state to the canvas
     ctx.fillStyle=`rgba(17,17,17,${CONFIG.TRAIL_FADE})`;
     ctx.fillRect(0,0,canvas.width,canvas.height);
     drawRoads();
