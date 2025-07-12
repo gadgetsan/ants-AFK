@@ -1,0 +1,87 @@
+import {CONFIG} from './config.js';
+import {ctx,canvas,decayRoads,decayPheromones} from './world.js';
+import {Faction,Nest,ResourcePile,Obstacle,Ant} from './entities.js';
+
+export class Sim{
+  constructor(){
+    this.factions=[
+      new Faction('Red','rgba(255,80,80,0.9)',CONFIG.RANDOM_TURN_JITTER*1.4),
+      new Faction('Green','rgba(80,255,80,0.9)',CONFIG.RANDOM_TURN_JITTER*0.8),
+      new Faction('Blue','rgba(80,80,255,0.9)',CONFIG.RANDOM_TURN_JITTER*1.2)
+    ];
+    this.nests=this.buildNests();
+    this.ants=this.buildAnts();
+    this.piles=this.buildPiles();
+    this.obstacles=this.buildObstacles();
+  }
+  buildNests(){
+    const arr=[],m=110;
+    this.factions.forEach((f,i)=>{
+      const a=i/this.factions.length*Math.PI*2;
+      arr.push(new Nest(
+        canvas.width/2+(canvas.width/2-m)*Math.cos(a),
+        canvas.height/2+(canvas.height/2-m)*Math.sin(a),
+        f
+      ));
+    });
+    return arr;
+  }
+  buildAnts(){
+    const a=[];
+    for(let i=0;i<CONFIG.ANT_COUNT;i++){
+      const f=this.factions[i%this.factions.length];
+      const n=this.nests.find(n=>n.f===f);
+      const off=()=> (Math.random()-0.5)*30;
+      a.push(new Ant(n.x+off(),n.y+off(),f,n));
+    }
+    return a;
+  }
+  buildPiles(){
+    const arr=[];
+    for(let i=0;i<CONFIG.FOOD_PILES;i++){
+      arr.push(new ResourcePile(
+        Math.random()*canvas.width,
+        Math.random()*canvas.height,
+        CONFIG.FOOD_PILE_CAPACITY,
+        'food','rgba(255,215,0,0.9)'
+      ));
+    }
+    for(let i=0;i<CONFIG.STONE_PILES;i++){
+      arr.push(new ResourcePile(
+        Math.random()*canvas.width,
+        Math.random()*canvas.height,
+        CONFIG.STONE_PILE_CAPACITY,
+        'stone','rgba(200,200,200,0.9)'
+      ));
+    }
+    return arr;
+  }
+  buildObstacles(){
+    const arr=[];
+    for(let i=0;i<CONFIG.OBSTACLE_COUNT;i++){
+      const r=CONFIG.OBSTACLE_MIN_RADIUS+Math.random()*(CONFIG.OBSTACLE_MAX_RADIUS-CONFIG.OBSTACLE_MIN_RADIUS);
+      arr.push(new Obstacle(Math.random()*canvas.width,Math.random()*canvas.height,r));
+    }
+    return arr;
+  }
+  update(){
+    const explorers=this.ants.filter(a=>a.state==='explore').length;
+    const ratio=explorers/this.ants.length;
+    decayRoads();
+    decayPheromones();
+    this.ants.forEach(a=>a.update(this.ants,this.piles,this.obstacles,ratio));
+    this.piles=this.piles.filter(p=>!p.empty);
+    const fCount=this.piles.filter(p=>p.type==='food').length;
+    const sCount=this.piles.filter(p=>p.type==='stone').length;
+    if(fCount<CONFIG.FOOD_PILES*0.8) this.piles.push(new ResourcePile(Math.random()*canvas.width,Math.random()*canvas.height,CONFIG.FOOD_PILE_CAPACITY,'food','rgba(255,215,0,0.9)'));
+    if(sCount<CONFIG.STONE_PILES*0.8) this.piles.push(new ResourcePile(Math.random()*canvas.width,Math.random()*canvas.height,CONFIG.STONE_PILE_CAPACITY,'stone','rgba(200,200,200,0.9)'));
+  }
+  draw(){
+    ctx.fillStyle=`rgba(17,17,17,${CONFIG.TRAIL_FADE})`;
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    this.obstacles.forEach(o=>o.draw());
+    this.piles.forEach(p=>p.draw());
+    this.nests.forEach(n=>n.draw());
+    this.ants.forEach(a=>a.draw());
+  }
+}
