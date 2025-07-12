@@ -3,7 +3,12 @@ import {ctx,canvas,decayRoads,decayPheromones,drawRoads,drawPheromones,mod} from
 import {Faction,Nest,ResourcePile,Obstacle} from './entities.js';
 import {Ant} from './ant.js';
 
+// ---------------------------------------------------------------------------
+// Simulation orchestrating ants, resources and obstacles
+// ---------------------------------------------------------------------------
+
 export class Sim{
+  // create the world and populate it
   constructor(){
     this.factions=[
       new Faction('Red','rgba(255,80,80,0.9)',CONFIG.RANDOM_TURN_JITTER*1.4),
@@ -80,15 +85,17 @@ export class Sim{
     const ratio=explorers/this.ants.length;
     decayRoads();
     decayPheromones();
+    // remove dug-out obstacles before ants react to them
+    this.obstacles=this.obstacles.filter(o=>!o.removed);
     this.ants.forEach(a=>a.update(this.ants,this.piles,this.obstacles,ratio));
     this.piles=this.piles.filter(p=>!p.empty);
-    this.obstacles=this.obstacles.filter(o=>!o.removed);
     const fCount=this.piles.filter(p=>p.type==='food').length;
     const sCount=this.piles.filter(p=>p.type==='stone').length;
     if(fCount<CONFIG.FOOD_PILES*0.8) this.piles.push(new ResourcePile(Math.random()*canvas.width,Math.random()*canvas.height,CONFIG.FOOD_PILE_CAPACITY,'food','rgba(255,215,0,0.9)'));
     if(sCount<CONFIG.STONE_PILES*0.8) this.piles.push(new ResourcePile(Math.random()*canvas.width,Math.random()*canvas.height,CONFIG.STONE_PILE_CAPACITY,'stone','rgba(200,200,200,0.9)'));
   }
   draw(){
+    // render the entire simulation state to the canvas
     ctx.fillStyle=`rgba(17,17,17,${CONFIG.TRAIL_FADE})`;
     ctx.fillRect(0,0,canvas.width,canvas.height);
     drawRoads();

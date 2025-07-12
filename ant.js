@@ -5,7 +5,19 @@ import {canvas,ctx,wrapAngle,mod,dxT,dyT,dist2T,
         depositStonePheromone,senseStonePheromone} from './world.js';
 import {ResourcePile} from './entities.js';
 
+// ---------------------------------------------------------------------------
+//  Ant class
+// ---------------------------------------------------------------------------
+// Handles behaviour for a single ant including flocking, resource gathering,
+// pheromone deposition and obstacle avoidance/digging.
+
 export class Ant{
+  /**
+   * @param {number} x Starting x position
+   * @param {number} y Starting y position
+   * @param {Faction} f Faction owning this ant
+   * @param {Nest} nest Home nest location
+   */
   constructor(x,y,f,nest){
     Object.assign(this,{x,y,f,nest});
     this.speed=CONFIG.MIN_SPEED+Math.random()*(CONFIG.MAX_SPEED-CONFIG.MIN_SPEED);
@@ -22,7 +34,18 @@ export class Ant{
     this.prevY=y;
     this.stuck=0;
   }
-  heavyScan(){this.scanCountdown=CONFIG.HEAVY_SCAN_INTERVAL;return true;}
+  /** Force an immediate sensor scan */
+  heavyScan(){
+    this.scanCountdown=CONFIG.HEAVY_SCAN_INTERVAL;
+    return true;
+  }
+  /**
+   * Per-tick update driving behaviour.
+   * @param {Ant[]} ants   All ants in the world
+   * @param {ResourcePile[]} piles Resource piles
+   * @param {Obstacle[]} obstacles Obstacles to avoid/dig
+   * @param {number} explRatio Ratio of exploring ants
+   */
   update(ants,piles,obstacles,explRatio){
     if(--this.scanCountdown<0)this.heavyScan();
     const startX=this.x,startY=this.y;
@@ -129,10 +152,12 @@ export class Ant{
     this.prevX=this.x;
     this.prevY=this.y;
   }
+  /** Steer towards or away from the home nest */
   attractNest(k){
     const dx=dxT(this.x,this.nest.x),dy=dyT(this.y,this.nest.y);
     this.angle+=wrapAngle(Math.atan2(dy,dx)-this.angle)*k;
   }
+  /** Render the ant on the canvas */
   draw(){
     ctx.fillStyle=this.f.c;
     ctx.beginPath();

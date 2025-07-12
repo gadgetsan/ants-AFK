@@ -1,12 +1,19 @@
 import {CONFIG} from './config.js';
 import {canvas,ctx,wrapAngle,mod,dxT,dyT,dist2T} from './world.js';
 
+// ---------------------------------------------------------------------------
+// Game entity helpers
+// ---------------------------------------------------------------------------
+
+// Represents a colony or team of ants
 export class Faction{
   constructor(n,c,j){Object.assign(this,{n,c,j});}
 }
 
+// Central base used by a faction
 export class Nest{
   constructor(x,y,f){Object.assign(this,{x,y,f,stock:0});}
+  // draw nest circle and stock count
   draw(){
     ctx.fillStyle=this.f.c;
     ctx.beginPath();
@@ -19,6 +26,7 @@ export class Nest{
 }
 
 export class ResourcePile{
+  // Generic pile of resources that ants can collect
   constructor(x,y,cap,type,color){
     Object.assign(this,{x,y,type,color});
     this.chunks=[];
@@ -30,6 +38,7 @@ export class ResourcePile{
     }
   }
   get empty(){return this.chunks.length===0;}
+  // remove a chunk near (x,y)
   takeNear(x,y,rad){
     if(this.empty)return false;
     const r2=rad*rad;
@@ -43,6 +52,7 @@ export class ResourcePile{
     }
     return false;
   }
+  // find any chunk near (x,y)
   detectChunk(x,y,rad){
     const r2=rad*rad;
     for(const ch of this.chunks){
@@ -52,6 +62,7 @@ export class ResourcePile{
     }
     return null;
   }
+  // render each resource chunk
   draw(){
     ctx.fillStyle=this.color;
     for(const ch of this.chunks){
@@ -61,6 +72,7 @@ export class ResourcePile{
 }
 
 export class Obstacle{
+  // Static obstacle that ants can dig through
   constructor(x,y,r,type='circle',x2=0,y2=0){
     this.type=type;
     if(type==='circle'){
@@ -72,6 +84,7 @@ export class Obstacle{
     this.stone=(type==='circle'?r*5:Math.hypot(x2-x,y2-y));
     this.removed=false;
   }
+  // render circle or line with holes
   draw(){
     ctx.fillStyle="#444";
     if(this.type==='circle'){
@@ -101,6 +114,7 @@ export class Obstacle{
       ctx.stroke();
     }
   }
+  // merge a new hole interval into the line obstacle
   addHole(start,end){
     start=Math.max(0,start); end=Math.min(1,end);
     if(start>=end) return;
@@ -121,7 +135,9 @@ export class Obstacle{
       this.removed=true;
     }
   }
+  // steer the ant away from the obstacle and optionally dig
   avoid(ant,forceDig=false){
+    if(this.removed) return;
     let near=false,desired;
     let hitT=0;
     if(this.type==='circle'){
@@ -135,12 +151,12 @@ export class Obstacle{
       const px=this.x1+vx*t,py=this.y1+vy*t;
       const dx=dxT(ant.x,px),dy=dyT(ant.y,py);
       const dist2=dx*dx+dy*dy;
-      near=dist2<(this.w/2+CONFIG.DIG_DETECTION)*(this.w/2+CONFIG.DIG_DETECTION);
-      const inHole=this.holes.some(h=>t>=h.start&&t<=h.end&&dist2<(this.w/2)*(this.w/2));
-      if(inHole) near=false;
+      const inHole=this.holes.some(h=>t>=h.start&&t<=h.end && dist2<(this.w/2)*(this.w/2));
+      near=dist2<(this.w/2+CONFIG.DIG_DETECTION)*(this.w/2+CONFIG.DIG_DETECTION) && !inHole;
       desired=Math.atan2(dy,dx)+Math.PI;
       hitT=t;
     }
+    // steer away and optionally dig into the obstacle when close
     if(near){
       ant.angle+=wrapAngle(desired-ant.angle)*0.5;
       if(!ant.carrying&&this.stone>0&&(forceDig||ant.scanCountdown===0)){
