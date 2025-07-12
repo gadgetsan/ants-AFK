@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Ant Colony v6 – Faster Ticks & Less Nest Clumping</title>
+  <title>Ant Simulation - click to add food</title>
   <style>html,body{margin:0;padding:0;overflow:hidden;background:#111}canvas{display:block}</style>
 </head>
 <body>
@@ -117,6 +117,12 @@ class Sim{
 
 /* ============ MAIN LOOP ============ */
 const sim=new Sim();
+canvas.addEventListener("click",e=>{
+  const r=canvas.getBoundingClientRect();
+  const x=e.clientX-r.left;
+  const y=e.clientY-r.top;
+  sim.piles.push(new FoodPile(x,y,CONFIG.FOOD_PILE_CAPACITY));
+});
 let STEPS_PER_FRAME=5; // we kept some warp – feel free to change with +/- keys
 addEventListener('keydown',e=>{if(e.key==='+')STEPS_PER_FRAME=Math.min(100,STEPS_PER_FRAME*2);if(e.key==='-')STEPS_PER_FRAME=Math.max(1,STEPS_PER_FRAME/2);});
 function loop(){for(let i=0;i<STEPS_PER_FRAME;i++)sim.update();sim.draw();requestAnimationFrame(loop);}loop();
