@@ -249,14 +249,52 @@ export function resourceAt(x,y,type){
   return type==='food'? resFood[i] : resStone[i];
 }
 
+export function findResourceNear(x,y,rad,type){
+  const cell=CONFIG.GRID_CELL;
+  const steps=Math.ceil(rad/cell);
+  const xi=Math.floor(mod(x,canvas.width)/cell);
+  const yi=Math.floor(mod(y,canvas.height)/cell);
+  const r2=rad*rad;
+  for(let dx=-steps;dx<=steps;dx++){
+    for(let dy=-steps;dy<=steps;dy++){
+      const nx=(xi+dx+gridW)%gridW;
+      const ny=(yi+dy+gridH)%gridH;
+      const cx=nx*cell+cell/2;
+      const cy=ny*cell+cell/2;
+      const d2=dxT(x,cx)**2+dyT(y,cy)**2;
+      if(d2>r2) continue;
+      const idx=nx+ny*gridW;
+      const count=type==='food'?resFood[idx]:resStone[idx];
+      if(count>0) return {cx,cy,idx};
+    }
+  }
+  return null;
+}
+
 export function updateResourceGrid(piles){
   resFood.fill(0); resStone.fill(0);
   for(const p of piles){
-    for(const ch of p.chunks){
-      const x=mod(p.x+ch.ox,canvas.width);
-      const y=mod(p.y+ch.oy,canvas.height);
-      const i=gridIdx(x,y);
-      if(p.type==='food') resFood[i]++; else resStone[i]++;
+    for(const [idx,count] of p.cells){
+      if(p.type==='food') resFood[idx]+=count; else resStone[idx]+=count;
+    }
+  }
+}
+
+export function drawResources(){
+  for(let i=0;i<resFood.length;i++){
+    if(resFood[i]>0){
+      const x=(i%gridW)*CONFIG.GRID_CELL;
+      const y=Math.floor(i/gridW)*CONFIG.GRID_CELL;
+      ctx.fillStyle='rgba(255,215,0,0.9)';
+      ctx.fillRect(x,y,CONFIG.GRID_CELL,CONFIG.GRID_CELL);
+    }
+  }
+  for(let i=0;i<resStone.length;i++){
+    if(resStone[i]>0){
+      const x=(i%gridW)*CONFIG.GRID_CELL;
+      const y=Math.floor(i/gridW)*CONFIG.GRID_CELL;
+      ctx.fillStyle='rgba(200,200,200,0.9)';
+      ctx.fillRect(x,y,CONFIG.GRID_CELL,CONFIG.GRID_CELL);
     }
   }
 }

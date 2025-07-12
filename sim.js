@@ -1,6 +1,7 @@
 import {CONFIG} from './config.js';
 import {ctx,canvas,decayRoads,decayPheromones,drawRoads,drawPheromones,
-        drawObstacles,updateObstacleGrid,consumeObstacleDirty,markObstacleDirty,mod} from './world.js';
+        drawObstacles,drawResources,updateObstacleGrid,consumeObstacleDirty,
+        markObstacleDirty,mod} from './world.js';
 import {Faction,Nest,ResourcePile,Obstacle} from './entities.js';
 import {Ant} from './ant.js';
 
@@ -115,7 +116,7 @@ export class Sim{
     drawRoads();
     drawPheromones();
     drawObstacles();
-    this.piles.forEach(p=>p.draw());
+    drawResources();
     this.nests.forEach(n=>n.draw());
     this.ants.forEach(a=>a.draw());
   }
