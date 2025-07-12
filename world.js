@@ -7,30 +7,24 @@ import {CONFIG} from './config.js';
 export const canvas=document.getElementById('antCanvas');
 export const ctx=canvas.getContext('2d');
 
-let roadW,roadH,roads;
-let pherW,pherH,pherFood,pherStone;
+// unified world grid -------------------------------------------------------
+let gridW,gridH;
+let roads,pherFood,pherStone,obstacles;
 
-function initRoads(){
-  // Grid used for road pheromones dropped while hauling stone
-  roadW=Math.ceil(canvas.width/CONFIG.ROAD_CELL);
-  roadH=Math.ceil(canvas.height/CONFIG.ROAD_CELL);
-  roads=new Float32Array(roadW*roadH);
-}
-
-function initPheromones(){
-  // Separate maps for food and stone pheromones
-  pherW=Math.ceil(canvas.width/CONFIG.PHER_CELL);
-  pherH=Math.ceil(canvas.height/CONFIG.PHER_CELL);
-  pherFood=new Float32Array(pherW*pherH);
-  pherStone=new Float32Array(pherW*pherH);
+function initGrid(){
+  gridW=Math.ceil(canvas.width/CONFIG.GRID_CELL);
+  gridH=Math.ceil(canvas.height/CONFIG.GRID_CELL);
+  roads=new Float32Array(gridW*gridH);
+  pherFood=new Float32Array(gridW*gridH);
+  pherStone=new Float32Array(gridW*gridH);
+  obstacles=new Uint8Array(gridW*gridH);
 }
 
 export function resize(){
   // Called whenever the window size changes
   canvas.width=innerWidth;
   canvas.height=innerHeight;
-  initRoads();
-  initPheromones();
+  initGrid();
 }
 resize();
 addEventListener('resize',resize);
@@ -51,25 +45,25 @@ export const dist2T=(ax,ay,bx,by)=>{
 };
 
 // road pheromones -----------------------------------------------------------
-function roadIdx(x,y){
-  const xi=Math.floor(mod(x,canvas.width)/CONFIG.ROAD_CELL);
-  const yi=Math.floor(mod(y,canvas.height)/CONFIG.ROAD_CELL);
-  return (xi+yi*roadW)%roads.length;
+function gridIdx(x,y){
+  const xi=Math.floor(mod(x,canvas.width)/CONFIG.GRID_CELL);
+  const yi=Math.floor(mod(y,canvas.height)/CONFIG.GRID_CELL);
+  return xi+yi*gridW;
 }
 export function depositRoad(x,y,a){
   // drop a road pheromone where the ant is walking
-  const i=roadIdx(x,y);roads[i]=Math.min(1,roads[i]+a);
+  const i=gridIdx(x,y);roads[i]=Math.min(1,roads[i]+a);
 }
 export function senseRoad(x,y){
   // examine neighbouring cells to see which direction contains the
   // strongest road pheromone concentration
-  const xi=Math.floor(mod(x,canvas.width)/CONFIG.ROAD_CELL);
-  const yi=Math.floor(mod(y,canvas.height)/CONFIG.ROAD_CELL);
+  const xi=Math.floor(mod(x,canvas.width)/CONFIG.GRID_CELL);
+  const yi=Math.floor(mod(y,canvas.height)/CONFIG.GRID_CELL);
   let best=0,dir=0;
   for(let dx=-1;dx<=1;dx++){
     for(let dy=-1;dy<=1;dy++){
       if(!dx&&!dy)continue;
-      const nx=(xi+dx+roadW)%roadW,ny=(yi+dy+roadH)%roadH,v=roads[nx+ny*roadW];
+      const nx=(xi+dx+gridW)%gridW,ny=(yi+dy+gridH)%gridH,v=roads[nx+ny*gridW];
       if(v>best){best=v;dir=Math.atan2(dy,dx);}
     }
   }
@@ -82,10 +76,10 @@ export function drawRoads(){
   for(let i=0;i<roads.length;i++){
     const v=roads[i];
     if(v>0.05){
-      const x=(i%roadW)*CONFIG.ROAD_CELL;
-      const y=Math.floor(i/roadW)*CONFIG.ROAD_CELL;
+      const x=(i%gridW)*CONFIG.GRID_CELL;
+      const y=Math.floor(i/gridW)*CONFIG.GRID_CELL;
       ctx.fillStyle=`rgba(100,100,100,${v})`;
-      ctx.fillRect(x,y,CONFIG.ROAD_CELL,CONFIG.ROAD_CELL);
+      ctx.fillRect(x,y,CONFIG.GRID_CELL,CONFIG.GRID_CELL);
     }
   }
 }
@@ -93,9 +87,9 @@ export function drawRoads(){
 // pheromone maps -----------------------------------------------------------
 // get array index for pheromone cell
 function pherIdx(x,y){
-  const xi=Math.floor(mod(x,canvas.width)/CONFIG.PHER_CELL);
-  const yi=Math.floor(mod(y,canvas.height)/CONFIG.PHER_CELL);
-  return (xi+yi*pherW)%pherFood.length;
+  const xi=Math.floor(mod(x,canvas.width)/CONFIG.GRID_CELL);
+  const yi=Math.floor(mod(y,canvas.height)/CONFIG.GRID_CELL);
+  return xi+yi*gridW;
 }
 export function depositFoodPheromone(x,y,a){
   // leave a food pheromone on the map
@@ -108,13 +102,13 @@ export function depositStonePheromone(x,y,a){
 // scan neighbouring cells for the strongest food pheromone
 export function senseFoodPheromone(x,y){
   // check nearby cells for food pheromone
-  const xi=Math.floor(mod(x,canvas.width)/CONFIG.PHER_CELL);
-  const yi=Math.floor(mod(y,canvas.height)/CONFIG.PHER_CELL);
+  const xi=Math.floor(mod(x,canvas.width)/CONFIG.GRID_CELL);
+  const yi=Math.floor(mod(y,canvas.height)/CONFIG.GRID_CELL);
   let best=0,dir=0;
   for(let dx=-1;dx<=1;dx++){
     for(let dy=-1;dy<=1;dy++){
       if(!dx&&!dy)continue;
-      const nx=(xi+dx+pherW)%pherW,ny=(yi+dy+pherH)%pherH,v=pherFood[nx+ny*pherW];
+      const nx=(xi+dx+gridW)%gridW,ny=(yi+dy+gridH)%gridH,v=pherFood[nx+ny*gridW];
       if(v>best){best=v;dir=Math.atan2(dy,dx);}
     }
   }
@@ -123,13 +117,13 @@ export function senseFoodPheromone(x,y){
 // scan neighbouring cells for the strongest stone pheromone
 export function senseStonePheromone(x,y){
   // check nearby cells for stone pheromone
-  const xi=Math.floor(mod(x,canvas.width)/CONFIG.PHER_CELL);
-  const yi=Math.floor(mod(y,canvas.height)/CONFIG.PHER_CELL);
+  const xi=Math.floor(mod(x,canvas.width)/CONFIG.GRID_CELL);
+  const yi=Math.floor(mod(y,canvas.height)/CONFIG.GRID_CELL);
   let best=0,dir=0;
   for(let dx=-1;dx<=1;dx++){
     for(let dy=-1;dy<=1;dy++){
       if(!dx&&!dy)continue;
-      const nx=(xi+dx+pherW)%pherW,ny=(yi+dy+pherH)%pherH,v=pherStone[nx+ny*pherW];
+      const nx=(xi+dx+gridW)%gridW,ny=(yi+dy+gridH)%gridH,v=pherStone[nx+ny*gridW];
       if(v>best){best=v;dir=Math.atan2(dy,dx);}
     }
   }
@@ -147,16 +141,66 @@ export function drawPheromones(){
   for(let i=0;i<pherFood.length;i++){
     const vf=pherFood[i],vs=pherStone[i];
     if(vf>0.05||vs>0.05){
-      const x=(i%pherW)*CONFIG.PHER_CELL;
-      const y=Math.floor(i/pherW)*CONFIG.PHER_CELL;
+      const x=(i%gridW)*CONFIG.GRID_CELL;
+      const y=Math.floor(i/gridW)*CONFIG.GRID_CELL;
       if(vf>0.05){
         ctx.fillStyle=`rgba(255,215,0,${vf})`;
-        ctx.fillRect(x,y,CONFIG.PHER_CELL,CONFIG.PHER_CELL);
+        ctx.fillRect(x,y,CONFIG.GRID_CELL,CONFIG.GRID_CELL);
       }
       if(vs>0.05){
         ctx.fillStyle=`rgba(180,180,180,${vs})`;
-        ctx.fillRect(x,y,CONFIG.PHER_CELL,CONFIG.PHER_CELL);
+        ctx.fillRect(x,y,CONFIG.GRID_CELL,CONFIG.GRID_CELL);
       }
     }
   }
+}
+
+// obstacle grid ------------------------------------------------------------
+function markCircle(ob){
+  const cell=CONFIG.GRID_CELL;
+  const minX=Math.floor((ob.x-ob.r)/cell);
+  const maxX=Math.floor((ob.x+ob.r)/cell);
+  const minY=Math.floor((ob.y-ob.r)/cell);
+  const maxY=Math.floor((ob.y+ob.r)/cell);
+  for(let xi=minX;xi<=maxX;xi++){
+    for(let yi=minY;yi<=maxY;yi++){
+      const gx=mod(xi,gridW),gy=mod(yi,gridH);
+      const cx=gx*cell+cell/2,cy=gy*cell+cell/2;
+      const dx=dxT(cx,ob.x),dy=dyT(cy,ob.y);
+      if(dx*dx+dy*dy<=ob.r*ob.r) obstacles[gx+gy*gridW]=1;
+    }
+  }
+}
+
+function markLine(ob){
+  const cell=CONFIG.GRID_CELL;
+  const minX=Math.floor((Math.min(ob.x1,ob.x2)-ob.w/2)/cell);
+  const maxX=Math.floor((Math.max(ob.x1,ob.x2)+ob.w/2)/cell);
+  const minY=Math.floor((Math.min(ob.y1,ob.y2)-ob.w/2)/cell);
+  const maxY=Math.floor((Math.max(ob.y1,ob.y2)+ob.w/2)/cell);
+  const vx=ob.x2-ob.x1,vy=ob.y2-ob.y1;
+  const len2=vx*vx+vy*vy;
+  for(let xi=minX;xi<=maxX;xi++){
+    for(let yi=minY;yi<=maxY;yi++){
+      const gx=mod(xi,gridW),gy=mod(yi,gridH);
+      const cx=gx*cell+cell/2,cy=gy*cell+cell/2;
+      let t=((cx-ob.x1)*vx+(cy-ob.y1)*vy)/len2;
+      t=Math.max(0,Math.min(1,t));
+      const px=ob.x1+vx*t,py=ob.y1+vy*t;
+      const dx=dxT(cx,px),dy=dyT(cy,py);
+      const inHole=ob.holes&&ob.holes.some(h=>t>=h.start&&t<=h.end);
+      if(!inHole&&dx*dx+dy*dy<=(ob.w/2)*(ob.w/2)) obstacles[gx+gy*gridW]=1;
+    }
+  }
+}
+
+export function updateObstacleGrid(obs){
+  obstacles.fill(0);
+  for(const ob of obs){
+    if(ob.type==='circle') markCircle(ob); else markLine(ob);
+  }
+}
+
+export function isBlocked(x,y){
+  return obstacles[gridIdx(x,y)]>0;
 }

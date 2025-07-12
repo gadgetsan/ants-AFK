@@ -35,14 +35,16 @@ export const CONFIG={
   STONE_PILES:12,
   STONE_PILE_CAPACITY:80,
 
+  // World grid ------------------------------------------------------------
+  // Cell size for all grid based features such as pheromones,
+  // roads and obstacle information
+  GRID_CELL:6,
   // Road pheromones -------------------------------------------------------
-  ROAD_CELL:6,
   ROAD_DECAY:0.985,
   ROAD_DEPOSIT:0.4,
   ROAD_FOLLOW:0.2,
 
   // Resource pheromones ---------------------------------------------------
-  PHER_CELL:6,
   PHER_DECAY:0.98,
   PHER_DEPOSIT:0.3,
   PHER_FOLLOW:0.15,

@@ -1,5 +1,6 @@
 import {CONFIG} from './config.js';
-import {ctx,canvas,decayRoads,decayPheromones,drawRoads,drawPheromones,mod} from './world.js';
+import {ctx,canvas,decayRoads,decayPheromones,drawRoads,drawPheromones,
+        updateObstacleGrid,mod} from './world.js';
 import {Faction,Nest,ResourcePile,Obstacle} from './entities.js';
 import {Ant} from './ant.js';
 
@@ -19,6 +20,7 @@ export class Sim{
     this.ants=this.buildAnts();
     this.piles=this.buildPiles();
     this.obstacles=this.buildObstacles();
+    updateObstacleGrid(this.obstacles);
   }
   // create nests arranged around the centre
   buildNests(){
@@ -92,6 +94,7 @@ export class Sim{
     decayPheromones();
     // remove dug-out obstacles before ants react to them
     this.obstacles=this.obstacles.filter(o=>!o.removed);
+    updateObstacleGrid(this.obstacles);
     this.ants.forEach(a=>a.update(this.ants,this.piles,this.obstacles,ratio));
     this.piles=this.piles.filter(p=>!p.empty);
     const fCount=this.piles.filter(p=>p.type==='food').length;
