@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Ant Colony v6 – Faster Ticks & Less Nest Clumping</title>
+  <style>html,body{margin:0;padding:0;overflow:hidden;background:#111}canvas{display:block}</style>
+</head>
+<body>
+<canvas id="antCanvas"></canvas>
+<script>
+/* ============ GLOBAL CONFIG ============ */
+const CONFIG={
+  /* population */
+  ANT_COUNT:200,
+  /* motion speed (4× previous) */
+  SPEED_SCALE:4,
+  MIN_SPEED:0.05*4,
+  MAX_SPEED:0.15*4,
+  RANDOM_TURN_JITTER:0.12,
+  /* flocking */
+  COHESION_DIST:60,
+  COHESION_STRENGTH:0.025,
+  REPULSION_DIST:14,
+  REPULSION_STRENGTH:0.18,
+  /* nest forces */
+  NEST_ATTRACTION_IDLE:0.02,   // weaker pull
+  NEST_ATTRACTION_RETURN:0.08,
+  NEST_REPEL_IDLE:0.01,        // idle ants gently pushed out
+  NEST_REPEL_EXPLORING:0.03,
+  /* trails */
+  TRAIL_FADE:0.18,
+  /* exploration */
+  EXPLORE_MAX_RATIO:0.20,
+  EXPLORE_CHANCE:0.001,
+  EXPLORE_TIME_MIN:1200,
+  EXPLORE_TIME_MAX:4800,
+  /* food */
+  FOOD_PILES:25,
+  FOOD_PILE_CAPACITY:120,
+  FOOD_PICKUP_RADIUS:4,
+  FOOD_DETECT_RADIUS:38,
+  FOOD_BASE_RADIUS:18,
+  /* perf – scan heavy ops every N ticks */
+  HEAVY_SCAN_INTERVAL:3,
+};
+
+/* ============ CANVAS ============ */
+const canvas=document.getElementById('antCanvas');
+const ctx=canvas.getContext('2d');
+function resize(){canvas.width=innerWidth;canvas.height=innerHeight;}resize();addEventListener('resize',resize);
+
+/* ============ TORUS UTILS ============ */
+const wrapAngle=a=>{while(a> Math.PI)a-=Math.PI*2;while(a<-Math.PI)a+=Math.PI*2;return a};
+const mod=(x,range)=>((x%range)+range)%range;
+function dxT(ax,bx){let d=bx-ax,w=canvas.width; if(d>w/2)d-=w; else if(d<-w/2)d+=w; return d;}
+function dyT(ay,by){let d=by-ay,h=canvas.height;if(d>h/2)d-=h; else if(d<-h/2)d+=h; return d;}
+const dist2T=(ax,ay,bx,by)=>{const dx=dxT(ax,bx),dy=dyT(ay,by);return dx*dx+dy*dy;};
+
+/* ============ CLASSES ============ */
+class Faction{constructor(n,c,j){Object.assign(this,{n,c,j})}}
+class Nest{
+  constructor(x,y,f){Object.assign(this,{x,y,f,stock:0})}
+  draw(){ctx.fillStyle=this.f.c;ctx.beginPath();ctx.arc(this.x,this.y,6,0,Math.PI*2);ctx.fill();ctx.fillStyle="#fff";ctx.font="10px monospace";ctx.fillText(this.stock,this.x+8,this.y+3);}
+}
+
+class FoodPile{
+  constructor(x,y,cap){this.x=x;this.y=y;this.chunks=[];const R=CONFIG.FOOD_BASE_RADIUS;while(this.chunks.length<cap){const r=Math.sqrt(Math.random())*R,t=Math.random()*Math.PI*2;this.chunks.push({ox:Math.round(r*Math.cos(t)),oy:Math.round(r*Math.sin(t))});}}
+  get empty(){return this.chunks.length===0}
+  takeNear(x,y,rad){if(this.empty)return false;const r2=rad*rad;for(let i=0;i<this.chunks.length;i++){const cx=mod(this.x+this.chunks[i].ox,canvas.width),cy=mod(this.y+this.chunks[i].oy,canvas.height);if(dist2T(x,y,cx,cy)<=r2){this.chunks.splice(i,1);return true;}}return false;}
+  detectChunk(x,y,rad){const r2=rad*rad;for(const ch of this.chunks){const cx=mod(this.x+ch.ox,canvas.width),cy=mod(this.y+ch.oy,canvas.height);if(dist2T(x,y,cx,cy)<=r2)return {cx,cy};}return null;}
+  draw(){ctx.fillStyle="rgba(255,215,0,0.9)";for(const ch of this.chunks){ctx.fillRect(mod(this.x+ch.ox,canvas.width),mod(this.y+ch.oy,canvas.height),1,1);} }
+}
+
+class Ant{
+  constructor(x,y,f,nest){Object.assign(this,{x,y,f,nest});this.speed=CONFIG.MIN_SPEED+Math.random()*(CONFIG.MAX_SPEED-CONFIG.MIN_SPEED);this.angle=Math.random()*Math.PI*2;this.turnJitter=(0.8+Math.random()*0.4)*this.f.j;this.state='idle';this.ticks=0;this.carrying=false;this.scanCountdown=Math.floor(Math.random()*CONFIG.HEAVY_SCAN_INTERVAL);} // spread load
+  heavyScan(){this.scanCountdown=CONFIG.HEAVY_SCAN_INTERVAL;return true;}
+  update(ants,piles,explRatio){if(--this.scanCountdown<0)this.heavyScan();if(this.state==='idle'&&explRatio<CONFIG.EXPLORE_MAX_RATIO&&Math.random()<CONFIG.EXPLORE_CHANCE){this.state='explore';this.ticks=Math.floor(CONFIG.EXPLORE_TIME_MIN+Math.random()*(CONFIG.EXPLORE_TIME_MAX-CONFIG.EXPLORE_TIME_MIN));}
+
+    /* ==== flocking (heavy) ==== */
+    if(this.scanCountdown===0){let ax=0,ay=0,c=0,rx=0,ry=0;for(const o of ants){if(o===this||o.f!==this.f)continue;const dx=dxT(this.x,o.x),dy=dyT(this.y,o.y),d2=dx*dx+dy*dy;if(d2<CONFIG.COHESION_DIST*CONFIG.COHESION_DIST){ax+=this.x+dx;ay+=this.y+dy;c++;}if(d2<CONFIG.REPULSION_DIST*CONFIG.REPULSION_DIST){rx-=dx;ry-=dy;}}
+      if(c){ax/=c;ay/=c;this.angle+=wrapAngle(Math.atan2(dyT(this.y,ay),dxT(this.x,ax))-this.angle)*CONFIG.COHESION_STRENGTH;}
+      if(rx||ry){this.angle+=wrapAngle(Math.atan2(ry,rx)-this.angle)*CONFIG.REPULSION_STRENGTH;}}
+
+    /* ==== state behaviours ==== */
+    if(this.state==='idle'){
+      // mild wander + nest repel so they don't pile up
+      this.attractNest(-CONFIG.NEST_REPEL_IDLE);
+    }
+    if(this.state==='explore'){
+      this.attractNest(-CONFIG.NEST_REPEL_EXPLORING); // stronger repel
+      if(this.scanCountdown===0){for(const p of piles){if(p.empty)continue; if(dist2T(this.x,this.y,p.x,p.y)>(CONFIG.FOOD_DETECT_RADIUS+CONFIG.FOOD_BASE_RADIUS)**2)continue; const tgt=p.detectChunk(this.x,this.y,CONFIG.FOOD_DETECT_RADIUS); if(tgt){const desired=Math.atan2(dyT(this.y,tgt.cy),dxT(this.x,tgt.cx));this.angle+=wrapAngle(desired-this.angle)*0.18; break;}}}
+      if(this.scanCountdown===0){for(const p of piles){if(p.takeNear(this.x,this.y,CONFIG.FOOD_PICKUP_RADIUS)){this.carrying=true;this.state='return';break;}}}
+      if(--this.ticks<=0&&this.state==='explore')this.state='return';
+    }
+    if(this.state==='return'){
+      this.attractNest(CONFIG.NEST_ATTRACTION_RETURN);
+      if(dist2T(this.x,this.y,this.nest.x,this.nest.y)<400){if(this.carrying){this.nest.stock++;this.carrying=false;}this.state='idle';}
+    }
+
+    /* ==== move ==== */
+    this.angle+=(Math.random()*2-1)*this.turnJitter;
+    this.x=mod(this.x+Math.cos(this.angle)*this.speed,canvas.width);
+    this.y=mod(this.y+Math.sin(this.angle)*this.speed,canvas.height);
+  }
+  attractNest(k){const dx=dxT(this.x,this.nest.x),dy=dyT(this.y,this.nest.y);this.angle+=wrapAngle(Math.atan2(dy,dx)-this.angle)*k;}
+  draw(){ctx.fillStyle=this.f.c;ctx.beginPath();ctx.arc(this.x,this.y,this.carrying?3:2,0,Math.PI*2);ctx.fill();if(this.carrying){ctx.fillStyle="#fff";ctx.fillRect(this.x,this.y,1,1);}}
+}
+
+class Sim{
+  constructor(){this.factions=[new Faction('Red','rgba(255,80,80,0.9)',CONFIG.RANDOM_TURN_JITTER*1.4),new Faction('Green','rgba(80,255,80,0.9)',CONFIG.RANDOM_TURN_JITTER*0.8),new Faction('Blue','rgba(80,80,255,0.9)',CONFIG.RANDOM_TURN_JITTER*1.2)];this.nests=this.buildNests();this.ants=this.buildAnts();this.piles=this.buildFood();}
+  buildNests(){const arr=[],m=110;this.factions.forEach((f,i)=>{const a=i/this.factions.length*Math.PI*2;arr.push(new Nest(canvas.width/2+(canvas.width/2-m)*Math.cos(a),canvas.height/2+(canvas.height/2-m)*Math.sin(a),f));});return arr;}
+  buildAnts(){const a=[];for(let i=0;i<CONFIG.ANT_COUNT;i++){const f=this.factions[i%this.factions.length],n=this.nests.find(n=>n.f===f),off=()=> (Math.random()-0.5)*30;a.push(new Ant(n.x+off(),n.y+off(),f,n));}return a;}
+  buildFood(){const arr=[];for(let i=0;i<CONFIG.FOOD_PILES;i++)arr.push(new FoodPile(Math.random()*canvas.width,Math.random()*canvas.height,CONFIG.FOOD_PILE_CAPACITY));return arr;}
+  update(){const explorers=this.ants.filter(a=>a.state==='explore').length,ratio=explorers/this.ants.length;this.ants.forEach(a=>a.update(this.ants,this.piles,ratio));this.piles=this.piles.filter(p=>!p.empty);if(this.piles.length<CONFIG.FOOD_PILES*0.8)this.piles.push(new FoodPile(Math.random()*canvas.width,Math.random()*canvas.height,CONFIG.FOOD_PILE_CAPACITY));}
+  draw(){ctx.fillStyle=`rgba(17,17,17,${CONFIG.TRAIL_FADE})`;ctx.fillRect(0,0,canvas.width,canvas.height);this.piles.forEach(p=>p.draw());this.nests.forEach(n=>n.draw());this.ants.forEach(a=>a.draw());}
+}
+
+/* ============ MAIN LOOP ============ */
+const sim=new Sim();
+let STEPS_PER_FRAME=5; // we kept some warp – feel free to change with +/- keys
+addEventListener('keydown',e=>{if(e.key==='+')STEPS_PER_FRAME=Math.min(100,STEPS_PER_FRAME*2);if(e.key==='-')STEPS_PER_FRAME=Math.max(1,STEPS_PER_FRAME/2);});
+function loop(){for(let i=0;i<STEPS_PER_FRAME;i++)sim.update();sim.draw();requestAnimationFrame(loop);}loop();
+</script>
+</body>
+</html>
