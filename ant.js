@@ -1,5 +1,8 @@
 import {CONFIG} from './config.js';
-import {canvas,ctx,wrapAngle,mod,dxT,dyT,dist2T,depositRoad,senseRoad,depositPheromone,sensePheromone} from './world.js';
+import {canvas,ctx,wrapAngle,mod,dxT,dyT,dist2T,
+        depositRoad,senseRoad,
+        depositFoodPheromone,senseFoodPheromone,
+        depositStonePheromone,senseStonePheromone} from './world.js';
 
 export class Ant{
   constructor(x,y,f,nest){
@@ -10,6 +13,7 @@ export class Ant{
     this.state='idle';
     this.ticks=0;
     this.carrying=null;
+    this.pherTimer=0;
     this.scanCountdown=Math.floor(Math.random()*CONFIG.HEAVY_SCAN_INTERVAL);
   }
   heavyScan(){this.scanCountdown=CONFIG.HEAVY_SCAN_INTERVAL;return true;}
@@ -51,6 +55,7 @@ export class Ant{
         for(const p of piles){
           if(p.takeNear(this.x,this.y,CONFIG.FOOD_PICKUP_RADIUS)){
             this.carrying=p.type;
+            this.pherTimer=CONFIG.PHER_DURATION;
             this.state='return';
             break;
           }
@@ -63,21 +68,29 @@ export class Ant{
       if(dist2T(this.x,this.y,this.nest.x,this.nest.y)<400){
         if(this.carrying==='food')this.nest.stock++;
         this.carrying=null;
+        this.pherTimer=0;
         this.state='explore';
         this.ticks=CONFIG.POST_RETURN_WANDER;
       }
     }
     if(this.carrying==='stone'){
       depositRoad(this.x,this.y,CONFIG.ROAD_DEPOSIT);
+      if(this.pherTimer>0){
+        depositStonePheromone(this.x,this.y,CONFIG.PHER_DEPOSIT);
+        this.pherTimer--;}
     }else if(this.scanCountdown===0){
       const s=senseRoad(this.x,this.y);
       if(s.best>0.05)this.angle+=wrapAngle(s.dir-this.angle)*CONFIG.ROAD_FOLLOW;
     }
     if(this.carrying==='food'){
-      depositPheromone(this.x,this.y,CONFIG.PHER_DEPOSIT);
+      if(this.pherTimer>0){
+        depositFoodPheromone(this.x,this.y,CONFIG.PHER_DEPOSIT);
+        this.pherTimer--;}
     }else if(this.scanCountdown===0){
-      const s=sensePheromone(this.x,this.y);
+      const s=senseFoodPheromone(this.x,this.y);
       if(s.best>0.05)this.angle+=wrapAngle(s.dir-this.angle)*CONFIG.PHER_FOLLOW;
+      const ss=senseStonePheromone(this.x,this.y);
+      if(ss.best>0.05)this.angle+=wrapAngle(ss.dir-this.angle)*CONFIG.PHER_FOLLOW*0.5;
     }
     for(const ob of obstacles){
       ob.avoid(this);

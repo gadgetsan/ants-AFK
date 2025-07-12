@@ -59,11 +59,11 @@ export class Sim{
   }
   buildObstacles(){
     const arr=[];
-    const lineCount=Math.floor(CONFIG.OBSTACLE_COUNT*0.7);
+    const lineCount=Math.floor(CONFIG.OBSTACLE_COUNT*0.9);
     for(let i=0;i<lineCount;i++){
       const x1=Math.random()*canvas.width;
       const y1=Math.random()*canvas.height;
-      const len=CONFIG.OBSTACLE_MIN_RADIUS+Math.random()*(CONFIG.OBSTACLE_MAX_RADIUS-CONFIG.OBSTACLE_MIN_RADIUS)*2;
+      const len=CONFIG.OBSTACLE_LINE_MIN+Math.random()*(CONFIG.OBSTACLE_LINE_MAX-CONFIG.OBSTACLE_LINE_MIN);
       const a=Math.random()*Math.PI*2;
       const x2=mod(x1+Math.cos(a)*len,canvas.width);
       const y2=mod(y1+Math.sin(a)*len,canvas.height);

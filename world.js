@@ -4,7 +4,7 @@ export const canvas=document.getElementById('antCanvas');
 export const ctx=canvas.getContext('2d');
 
 let roadW,roadH,roads;
-let pherW,pherH,pheromones;
+let pherW,pherH,pherFood,pherStone;
 
 function initRoads(){
   roadW=Math.ceil(canvas.width/CONFIG.ROAD_CELL);
@@ -15,7 +15,8 @@ function initRoads(){
 function initPheromones(){
   pherW=Math.ceil(canvas.width/CONFIG.PHER_CELL);
   pherH=Math.ceil(canvas.height/CONFIG.PHER_CELL);
-  pheromones=new Float32Array(pherW*pherH);
+  pherFood=new Float32Array(pherW*pherH);
+  pherStone=new Float32Array(pherW*pherH);
 }
 
 export function resize(){
@@ -68,31 +69,56 @@ export function drawRoads(){
 function pherIdx(x,y){
   const xi=Math.floor(mod(x,canvas.width)/CONFIG.PHER_CELL);
   const yi=Math.floor(mod(y,canvas.height)/CONFIG.PHER_CELL);
-  return (xi+yi*pherW)%pheromones.length;
+  return (xi+yi*pherW)%pherFood.length;
 }
-export function depositPheromone(x,y,a){const i=pherIdx(x,y);pheromones[i]=Math.min(1,pheromones[i]+a);}
-export function sensePheromone(x,y){
+export function depositFoodPheromone(x,y,a){const i=pherIdx(x,y);pherFood[i]=Math.min(1,pherFood[i]+a);}
+export function depositStonePheromone(x,y,a){const i=pherIdx(x,y);pherStone[i]=Math.min(1,pherStone[i]+a);}
+export function senseFoodPheromone(x,y){
   const xi=Math.floor(mod(x,canvas.width)/CONFIG.PHER_CELL);
   const yi=Math.floor(mod(y,canvas.height)/CONFIG.PHER_CELL);
   let best=0,dir=0;
   for(let dx=-1;dx<=1;dx++){
     for(let dy=-1;dy<=1;dy++){
       if(!dx&&!dy)continue;
-      const nx=(xi+dx+pherW)%pherW,ny=(yi+dy+pherH)%pherH,v=pheromones[nx+ny*pherW];
+      const nx=(xi+dx+pherW)%pherW,ny=(yi+dy+pherH)%pherH,v=pherFood[nx+ny*pherW];
       if(v>best){best=v;dir=Math.atan2(dy,dx);}
     }
   }
   return{best,dir};
 }
-export function decayPheromones(){for(let i=0;i<pheromones.length;i++)pheromones[i]*=CONFIG.PHER_DECAY;}
+export function senseStonePheromone(x,y){
+  const xi=Math.floor(mod(x,canvas.width)/CONFIG.PHER_CELL);
+  const yi=Math.floor(mod(y,canvas.height)/CONFIG.PHER_CELL);
+  let best=0,dir=0;
+  for(let dx=-1;dx<=1;dx++){
+    for(let dy=-1;dy<=1;dy++){
+      if(!dx&&!dy)continue;
+      const nx=(xi+dx+pherW)%pherW,ny=(yi+dy+pherH)%pherH,v=pherStone[nx+ny*pherW];
+      if(v>best){best=v;dir=Math.atan2(dy,dx);}
+    }
+  }
+  return{best,dir};
+}
+export function decayPheromones(){
+  for(let i=0;i<pherFood.length;i++){
+    pherFood[i]*=CONFIG.PHER_DECAY;
+    pherStone[i]*=CONFIG.PHER_DECAY;
+  }
+}
 export function drawPheromones(){
-  for(let i=0;i<pheromones.length;i++){
-    const v=pheromones[i];
-    if(v>0.05){
+  for(let i=0;i<pherFood.length;i++){
+    const vf=pherFood[i],vs=pherStone[i];
+    if(vf>0.05||vs>0.05){
       const x=(i%pherW)*CONFIG.PHER_CELL;
       const y=Math.floor(i/pherW)*CONFIG.PHER_CELL;
-      ctx.fillStyle=`rgba(255,50,50,${v})`;
-      ctx.fillRect(x,y,CONFIG.PHER_CELL,CONFIG.PHER_CELL);
+      if(vf>0.05){
+        ctx.fillStyle=`rgba(255,215,0,${vf})`;
+        ctx.fillRect(x,y,CONFIG.PHER_CELL,CONFIG.PHER_CELL);
+      }
+      if(vs>0.05){
+        ctx.fillStyle=`rgba(180,180,180,${vs})`;
+        ctx.fillRect(x,y,CONFIG.PHER_CELL,CONFIG.PHER_CELL);
+      }
     }
   }
 }
