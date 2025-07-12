@@ -90,7 +90,7 @@ export class Obstacle{
     let near=false,desired;
     if(this.type==='circle'){
       const dx=dxT(ant.x,this.x),dy=dyT(ant.y,this.y);
-      near=dx*dx+dy*dy<(this.r+2)*(this.r+2);
+      near=dx*dx+dy*dy<(this.r+CONFIG.DIG_DETECTION)*(this.r+CONFIG.DIG_DETECTION);
       desired=Math.atan2(dy,dx)+Math.PI;
     }else{
       const vx=this.x2-this.x1,vy=this.y2-this.y1;
@@ -98,7 +98,7 @@ export class Obstacle{
       const t=Math.max(0,Math.min(1,((ant.x-this.x1)*vx+(ant.y-this.y1)*vy)/len2));
       const px=this.x1+vx*t,py=this.y1+vy*t;
       const dx=dxT(ant.x,px),dy=dyT(ant.y,py);
-      near=dx*dx+dy*dy<(this.w/2+2)*(this.w/2+2);
+      near=dx*dx+dy*dy<(this.w/2+CONFIG.DIG_DETECTION)*(this.w/2+CONFIG.DIG_DETECTION);
       desired=Math.atan2(dy,dx)+Math.PI;
     }
     if(near){
@@ -106,8 +106,10 @@ export class Obstacle{
       if(!ant.carrying&&this.stone>0&&(forceDig||ant.scanCountdown===0)){
         this.stone--;
         ant.carrying='stone';
-        if(this.type==='circle')this.r=Math.max(2,this.r-0.3);
-        else this.w=Math.max(1,this.w-0.1);
+        ant.state='return';
+        ant.pherTimer=CONFIG.PHER_DURATION;
+        if(this.type==='circle')this.r=Math.max(2,this.r-CONFIG.DIG_AMOUNT);
+        else this.w=Math.max(1,this.w-CONFIG.DIG_AMOUNT);
         if(this.stone<=0)this.removed=true;
       }
     }

@@ -3,6 +3,7 @@ import {canvas,ctx,wrapAngle,mod,dxT,dyT,dist2T,
         depositRoad,senseRoad,
         depositFoodPheromone,senseFoodPheromone,
         depositStonePheromone,senseStonePheromone} from './world.js';
+import {ResourcePile} from './entities.js';
 
 export class Ant{
   constructor(x,y,f,nest){
@@ -71,7 +72,11 @@ export class Ant{
     if(this.state==='return'){
       this.attractNest(CONFIG.NEST_ATTRACTION_RETURN);
       if(dist2T(this.x,this.y,this.nest.x,this.nest.y)<400){
-        if(this.carrying==='food')this.nest.stock++;
+        if(this.carrying==='food'){
+          this.nest.stock++;
+        }else if(this.carrying==='stone'){
+          piles.push(new ResourcePile(this.nest.x,this.nest.y,1,'stone','rgba(200,200,200,0.9)'));
+        }
         this.carrying=null;
         this.pherTimer=0;
         this.state='explore';
