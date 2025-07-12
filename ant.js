@@ -25,8 +25,7 @@ export class Ant{
   heavyScan(){this.scanCountdown=CONFIG.HEAVY_SCAN_INTERVAL;return true;}
   update(ants,piles,obstacles,explRatio){
     if(--this.scanCountdown<0)this.heavyScan();
-    const moved=dist2T(this.prevX,this.prevY,this.x,this.y);
-    if(moved<1) this.stuck++; else this.stuck=0;
+    const startX=this.x,startY=this.y;
     if(this.state==='idle'&&explRatio<CONFIG.EXPLORE_MAX_RATIO&&Math.random()<CONFIG.EXPLORE_CHANCE){
       this.state='explore';
       this.ticks=Math.floor(CONFIG.EXPLORE_TIME_MIN+Math.random()*(CONFIG.EXPLORE_TIME_MAX-CONFIG.EXPLORE_TIME_MIN));
@@ -125,6 +124,8 @@ export class Ant{
     this.angle+=(Math.random()*2-1)*this.turnJitter;
     this.x=mod(this.x+Math.cos(this.angle)*this.speed,canvas.width);
     this.y=mod(this.y+Math.sin(this.angle)*this.speed,canvas.height);
+    const moved=dist2T(startX,startY,this.x,this.y);
+    if(moved<1) this.stuck++; else this.stuck=0;
     this.prevX=this.x;
     this.prevY=this.y;
   }
