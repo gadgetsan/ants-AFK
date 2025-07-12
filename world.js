@@ -9,7 +9,7 @@ export const ctx=canvas.getContext('2d');
 
 // unified world grid -------------------------------------------------------
 let gridW,gridH;
-let roads,pherFood,pherStone,obstacles;
+let roads,pherFood,pherStone,obstacles,resFood,resStone;
 
 function initGrid(){
   gridW=Math.ceil(canvas.width/CONFIG.GRID_CELL);
@@ -18,6 +18,8 @@ function initGrid(){
   pherFood=new Float32Array(gridW*gridH);
   pherStone=new Float32Array(gridW*gridH);
   obstacles=new Uint8Array(gridW*gridH);
+  resFood=new Uint16Array(gridW*gridH);
+  resStone=new Uint16Array(gridW*gridH);
 }
 
 export function resize(){
@@ -45,7 +47,7 @@ export const dist2T=(ax,ay,bx,by)=>{
 };
 
 // road pheromones -----------------------------------------------------------
-function gridIdx(x,y){
+export function gridIdx(x,y){
   const xi=Math.floor(mod(x,canvas.width)/CONFIG.GRID_CELL);
   const yi=Math.floor(mod(y,canvas.height)/CONFIG.GRID_CELL);
   return xi+yi*gridW;
@@ -203,4 +205,33 @@ export function updateObstacleGrid(obs){
 
 export function isBlocked(x,y){
   return obstacles[gridIdx(x,y)]>0;
+}
+
+// resource grid -------------------------------------------------------------
+export function addResource(x,y,type){
+  const i=gridIdx(x,y);
+  if(type==='food') resFood[i]++; else resStone[i]++;
+}
+
+export function removeResource(x,y,type){
+  const i=gridIdx(x,y);
+  if(type==='food'){ if(resFood[i]>0) resFood[i]--; }
+  else{ if(resStone[i]>0) resStone[i]--; }
+}
+
+export function resourceAt(x,y,type){
+  const i=gridIdx(x,y);
+  return type==='food'? resFood[i] : resStone[i];
+}
+
+export function updateResourceGrid(piles){
+  resFood.fill(0); resStone.fill(0);
+  for(const p of piles){
+    for(const ch of p.chunks){
+      const x=mod(p.x+ch.ox,canvas.width);
+      const y=mod(p.y+ch.oy,canvas.height);
+      const i=gridIdx(x,y);
+      if(p.type==='food') resFood[i]++; else resStone[i]++;
+    }
+  }
 }

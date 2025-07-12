@@ -1,5 +1,6 @@
 import {CONFIG} from './config.js';
-import {canvas,ctx,wrapAngle,mod,dxT,dyT,dist2T} from './world.js';
+import {canvas,ctx,wrapAngle,mod,dxT,dyT,dist2T,
+        addResource,removeResource,updateObstacleGrid} from './world.js';
 
 // ---------------------------------------------------------------------------
 // Game entity helpers
@@ -34,7 +35,10 @@ export class ResourcePile{
     while(this.chunks.length<cap){
       const r=Math.sqrt(Math.random())*R;
       const t=Math.random()*Math.PI*2;
-      this.chunks.push({ox:Math.round(r*Math.cos(t)),oy:Math.round(r*Math.sin(t))});
+      const ox=Math.round(r*Math.cos(t));
+      const oy=Math.round(r*Math.sin(t));
+      this.chunks.push({ox,oy});
+      addResource(mod(x+ox,canvas.width),mod(y+oy,canvas.height),type);
     }
   }
   get empty(){return this.chunks.length===0;}
@@ -46,7 +50,8 @@ export class ResourcePile{
       const cx=mod(this.x+this.chunks[i].ox,canvas.width);
       const cy=mod(this.y+this.chunks[i].oy,canvas.height);
       if(dist2T(x,y,cx,cy)<=r2){
-        this.chunks.splice(i,1);
+        const ch=this.chunks.splice(i,1)[0];
+        removeResource(mod(this.x+ch.ox,canvas.width),mod(this.y+ch.oy,canvas.height),this.type);
         return true;
       }
     }
@@ -134,6 +139,7 @@ export class Obstacle{
     if(this.holes.length===1&&this.holes[0].start<=0&&this.holes[0].end>=1){
       this.removed=true;
     }
+    updateObstacleGrid([this]);
   }
   // steer the ant away from the obstacle and optionally dig
   avoid(ant,forceDig=false){
@@ -170,6 +176,7 @@ export class Obstacle{
         }else{
           this.addHole(hitT-CONFIG.DIG_HOLE/2,hitT+CONFIG.DIG_HOLE/2);
         }
+        updateObstacleGrid([this]);
         if(this.stone<=0) this.removed=true;
       }
     }
