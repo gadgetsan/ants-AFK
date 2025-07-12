@@ -1,6 +1,6 @@
 import {CONFIG} from './config.js';
 import {canvas,ctx,wrapAngle,mod,dxT,dyT,dist2T,
-        addResource,removeResource,updateObstacleGrid} from './world.js';
+        addResource,removeResource,updateObstacleGrid,isBlocked} from './world.js';
 
 // ---------------------------------------------------------------------------
 // Game entity helpers
@@ -144,6 +144,18 @@ export class Obstacle{
   // steer the ant away from the obstacle and optionally dig
   avoid(ant,forceDig=false){
     if(this.removed) return;
+    const cell=CONFIG.GRID_CELL;
+    let gridNear=false;
+    for(let dx=-1;dx<=1;dx++){
+      for(let dy=-1;dy<=1;dy++){
+        const x=mod(ant.x+dx*cell,canvas.width);
+        const y=mod(ant.y+dy*cell,canvas.height);
+        if(isBlocked(x,y)){ gridNear=true; break; }
+      }
+      if(gridNear) break;
+    }
+    if(!gridNear) return;
+
     let near=false,desired;
     let hitT=0;
     if(this.type==='circle'){

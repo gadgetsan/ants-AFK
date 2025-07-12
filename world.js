@@ -207,6 +207,17 @@ export function isBlocked(x,y){
   return obstacles[gridIdx(x,y)]>0;
 }
 
+// render obstacles based solely on the grid
+export function drawObstacles(){
+  ctx.fillStyle="#444";
+  for(let i=0;i<obstacles.length;i++){
+    if(!obstacles[i]) continue;
+    const x=(i%gridW)*CONFIG.GRID_CELL;
+    const y=Math.floor(i/gridW)*CONFIG.GRID_CELL;
+    ctx.fillRect(x,y,CONFIG.GRID_CELL,CONFIG.GRID_CELL);
+  }
+}
+
 // resource grid -------------------------------------------------------------
 export function addResource(x,y,type){
   const i=gridIdx(x,y);
