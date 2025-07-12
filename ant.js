@@ -15,10 +15,15 @@ export class Ant{
     this.carrying=null;
     this.pherTimer=0;
     this.scanCountdown=Math.floor(Math.random()*CONFIG.HEAVY_SCAN_INTERVAL);
+    this.prevX=x;
+    this.prevY=y;
+    this.stuck=0;
   }
   heavyScan(){this.scanCountdown=CONFIG.HEAVY_SCAN_INTERVAL;return true;}
   update(ants,piles,obstacles,explRatio){
     if(--this.scanCountdown<0)this.heavyScan();
+    const moved=dist2T(this.prevX,this.prevY,this.x,this.y);
+    if(moved<1) this.stuck++; else this.stuck=0;
     if(this.state==='idle'&&explRatio<CONFIG.EXPLORE_MAX_RATIO&&Math.random()<CONFIG.EXPLORE_CHANCE){
       this.state='explore';
       this.ticks=Math.floor(CONFIG.EXPLORE_TIME_MIN+Math.random()*(CONFIG.EXPLORE_TIME_MAX-CONFIG.EXPLORE_TIME_MIN));
@@ -93,11 +98,13 @@ export class Ant{
       if(ss.best>0.05)this.angle+=wrapAngle(ss.dir-this.angle)*CONFIG.PHER_FOLLOW*0.5;
     }
     for(const ob of obstacles){
-      ob.avoid(this);
+      ob.avoid(this,this.stuck>CONFIG.STUCK_THRESHOLD);
     }
     this.angle+=(Math.random()*2-1)*this.turnJitter;
     this.x=mod(this.x+Math.cos(this.angle)*this.speed,canvas.width);
     this.y=mod(this.y+Math.sin(this.angle)*this.speed,canvas.height);
+    this.prevX=this.x;
+    this.prevY=this.y;
   }
   attractNest(k){
     const dx=dxT(this.x,this.nest.x),dy=dyT(this.y,this.nest.y);

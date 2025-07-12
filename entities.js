@@ -86,7 +86,7 @@ export class Obstacle{
       ctx.stroke();
     }
   }
-  avoid(ant){
+  avoid(ant,forceDig=false){
     let near=false,desired;
     if(this.type==='circle'){
       const dx=dxT(ant.x,this.x),dy=dyT(ant.y,this.y);
@@ -103,7 +103,7 @@ export class Obstacle{
     }
     if(near){
       ant.angle+=wrapAngle(desired-ant.angle)*0.5;
-      if(!ant.carrying&&this.stone>0&&ant.scanCountdown===0){
+      if(!ant.carrying&&this.stone>0&&(forceDig||ant.scanCountdown===0)){
         this.stone--;
         ant.carrying='stone';
         if(this.type==='circle')this.r=Math.max(2,this.r-0.3);
