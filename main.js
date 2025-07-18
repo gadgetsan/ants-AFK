@@ -1,12 +1,18 @@
 // main.js
-import { World } from './world.js';
-import { Ant } from './ant.js';
+import {
+  World
+} from './world.js';
+import {
+  Ant
+} from './ant.js';
 
 const canvas = document.getElementById('antCanvas');
 const ctx = canvas.getContext('2d');
 
-let world, ant;
+let world;
+let ants = [];
 const cellSize = 5; // Change this value to set cell size
+const ANT_COUNT = 5;
 
 function resizeCanvas() {
   canvas.width = window.innerWidth;
@@ -19,21 +25,22 @@ function resizeCanvas() {
   console.log(`Resizing canvas to ${canvas.width}x${canvas.height} with cell size ${cellSize}`);
   console.log(`Grid size: ${gridWidth}x${gridHeight}`);
   world = new World(gridWidth, gridHeight, cellSize);
-  ant = new Ant(
-    Math.floor(gridWidth / 2),
-    Math.floor(gridHeight / 2),
-    world,
-    cellSize
-  );
+
+  // Create multiple ants at random positions
+  ants = [];
+  for (let i = 0; i < ANT_COUNT; i++) {
+    const x = Math.floor(Math.random() * gridWidth);
+    const y = Math.floor(Math.random() * gridHeight);
+    ants.push(new Ant(x, y, world, cellSize));
+  }
 }
 resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
 
 function gameLoop() {
-  world.tick(); // Update world state
-  ant.update();
-  world.draw(ctx, ant);
+  world.tick();
+  ants.forEach(ant => ant.update());
+  world.draw(ctx, ants);
   requestAnimationFrame(gameLoop);
 }
-
 gameLoop();

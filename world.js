@@ -65,7 +65,10 @@ export class PheroCell {
 export class Wind {
   constructor() {
     this.directions = [
-      [1, 0], [-1, 0], [0, 1], [0, -1]
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1]
     ];
     this.dir = this.randomDirection();
     this.strength = this.randomStrength();
@@ -98,13 +101,29 @@ export class Wind {
   }
 }
 
+export class NestCell extends WorldCell {
+  constructor(color) {
+    super();
+    this.type = 'nest';
+    this.color = color;
+  }
+
+  getColor() {
+    return this.color;
+  }
+}
+
 export class World {
   constructor(width, height) {
     this.width = width;
     this.height = height;
     // Each cell: { world: WorldCell, phero: PheroCell }
-    this.grid = Array.from({ length: height }, () =>
-      Array.from({ length: width }, () => ({
+    this.grid = Array.from({
+        length: height
+      }, () =>
+      Array.from({
+        length: width
+      }, () => ({
         world: new WorldCell(),
         phero: new PheroCell()
       }))
@@ -135,6 +154,23 @@ export class World {
     return this.isInside(x, y) ? this.grid[y][x] : null;
   }
 
+  placeNest(x, y, color) {
+    // Place a cross-shaped nest centered at (x, y)
+    const positions = [
+      [x, y],
+      [x, y - 1],
+      [x, y + 1],
+      [x - 1, y],
+      [x + 1, y]
+    ];
+    //console.log(`Placing nest at (${x}, ${y}) with color ${color}`);
+    for (const [nx, ny] of positions) {
+      if (this.isInside(nx, ny)) {
+        this.grid[ny][nx].world = new NestCell(color);
+      }
+    }
+  }
+
   tick() {
     // Update wind
     this.wind.tick();
@@ -150,15 +186,25 @@ export class World {
     }
 
     // 2. Propagate smell (wind-biased diffusion)
-    const newPheros = Array.from({ length: this.height }, () =>
-      Array.from({ length: this.width }, () => ({ type: null, intensity: 0 }))
+    const newPheros = Array.from({
+        length: this.height
+      }, () =>
+      Array.from({
+        length: this.width
+      }, () => ({
+        type: null,
+        intensity: 0
+      }))
     );
 
     for (let y = 0; y < this.height; y++) {
       for (let x = 0; x < this.width; x++) {
         const cell = this.grid[y][x];
         const dirs = [
-          [0, -1], [1, 0], [0, 1], [-1, 0]
+          [0, -1],
+          [1, 0],
+          [0, 1],
+          [-1, 0]
         ];
         const windIndex = dirs.findIndex(([dx, dy]) =>
           dx === this.wind.dir[0] && dy === this.wind.dir[1]
@@ -173,7 +219,8 @@ export class World {
         // Distribute share to neighbors, wind gets extra
         for (let i = 0; i < dirs.length; i++) {
           const [dx, dy] = dirs[i];
-          const nx = x + dx, ny = y + dy;
+          const nx = x + dx,
+            ny = y + dy;
           if (this.isInside(nx, ny)) {
             let portion = share / 4;
             if (i === windIndex) {
@@ -202,7 +249,10 @@ export class World {
     for (let y = 0; y < this.height; y++) {
       for (let x = 0; x < this.width; x++) {
         const phero = this.grid[y][x].phero;
-        const { type, intensity } = newPheros[y][x];
+        const {
+          type,
+          intensity
+        } = newPheros[y][x];
         phero.type = type;
         phero.intensity = intensity;
         phero.decay();
@@ -210,18 +260,18 @@ export class World {
     }
   }
 
-  draw(ctx, ant) {
+  draw(ctx, ants) {
     const cellSize = ctx.canvas.width / this.width;
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     for (let y = 0; y < this.height; y++) {
       for (let x = 0; x < this.width; x++) {
         const cell = this.grid[y][x];
-        const { world, phero } = cell;
-        // Draw world cell only if not empty or if ant is present
-        if (ant.x === x && ant.y === y) {
-          ctx.fillStyle = '#ff4444';
-          ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
-        } else if (world && world.type !== 'empty') {
+        const {
+          world,
+          phero
+        } = cell;
+        // Draw world cell only if not empty
+        if (world && world.type !== 'empty') {
           ctx.fillStyle = world.getColor();
           ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
         }
@@ -232,5 +282,10 @@ export class World {
         }
       }
     }
+    // Draw all ants with their unique color
+    ants.forEach(ant => {
+      ctx.fillStyle = ant.color || '#ff4444';
+      ctx.fillRect(ant.x * cellSize, ant.y * cellSize, cellSize, cellSize);
+    });
   }
 }
