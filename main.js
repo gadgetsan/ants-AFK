@@ -1,30 +1,39 @@
-import {canvas,updateObstacleGrid,updateResourceGrid} from './world.js';
-import {CONFIG} from './config.js';
-import {Sim} from './sim.js';
-import {ResourcePile} from './entities.js';
+// main.js
+import { World } from './world.js';
+import { Ant } from './ant.js';
 
-const sim=new Sim();
+const canvas = document.getElementById('antCanvas');
+const ctx = canvas.getContext('2d');
 
-addEventListener('worldResized',()=>{
-  updateObstacleGrid(sim.obstacles);
-  updateResourceGrid(sim.piles);
-});
+let world, ant;
+const cellSize = 5; // Change this value to set cell size
 
-canvas.addEventListener('click',e=>{
-  const r=canvas.getBoundingClientRect();
-  const x=e.clientX-r.left;
-  const y=e.clientY-r.top;
-  if(e.shiftKey) sim.piles.push(new ResourcePile(x,y,CONFIG.STONE_PILE_CAPACITY,'stone','rgba(200,200,200,0.9)'));
-  else sim.piles.push(new ResourcePile(x,y,CONFIG.FOOD_PILE_CAPACITY,'food','rgba(255,215,0,0.9)'));
-});
-let STEPS_PER_FRAME=5;
-addEventListener('keydown',e=>{
-  if(e.key==='+') STEPS_PER_FRAME=Math.min(100,STEPS_PER_FRAME*2);
-  if(e.key==='-') STEPS_PER_FRAME=Math.max(1,STEPS_PER_FRAME/2);
-});
-function loop(){
-  for(let i=0;i<STEPS_PER_FRAME;i++) sim.update();
-  sim.draw();
-  requestAnimationFrame(loop);
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  // Always use integer grid size
+  const gridWidth = Math.floor(canvas.width / cellSize);
+  const gridHeight = Math.floor(canvas.height / cellSize);
+
+  console.log(`Resizing canvas to ${canvas.width}x${canvas.height} with cell size ${cellSize}`);
+  console.log(`Grid size: ${gridWidth}x${gridHeight}`);
+  world = new World(gridWidth, gridHeight, cellSize);
+  ant = new Ant(
+    Math.floor(gridWidth / 2),
+    Math.floor(gridHeight / 2),
+    world,
+    cellSize
+  );
 }
-loop();
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+function gameLoop() {
+  world.tick(); // Update world state
+  ant.update();
+  world.draw(ctx, ant);
+  requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
