@@ -1,300 +1,236 @@
-import {CONFIG} from './config.js';
+// world.js
+export class WorldCell {
+  constructor() {
+    this.type = 'empty';
+  }
 
-// ---------------------------------------------------------------------------
-// Canvas helpers and pheromone/road maps
-// ---------------------------------------------------------------------------
-
-export const canvas=document.getElementById('antCanvas');
-export const ctx=canvas.getContext('2d');
-
-// unified world grid -------------------------------------------------------
-let gridW,gridH;
-let roads,pherFood,pherStone,obstacles,resFood,resStone;
-let obstacleDirty=false;
-
-function initGrid(){
-  gridW=Math.ceil(canvas.width/CONFIG.GRID_CELL);
-  gridH=Math.ceil(canvas.height/CONFIG.GRID_CELL);
-  roads=new Float32Array(gridW*gridH);
-  pherFood=new Float32Array(gridW*gridH);
-  pherStone=new Float32Array(gridW*gridH);
-  obstacles=new Uint8Array(gridW*gridH);
-  resFood=new Uint16Array(gridW*gridH);
-  resStone=new Uint16Array(gridW*gridH);
+  getColor() {
+    // Default color for empty cell
+    return '#333';
+  }
 }
 
-export function resize(){
-  // Called whenever the window size changes
-  canvas.width=innerWidth;
-  canvas.height=innerHeight;
-  initGrid();
-  obstacleDirty=true;
-  dispatchEvent(new Event('worldResized'));
-}
-resize();
-addEventListener('resize',resize);
+export class FoodCell extends WorldCell {
+  constructor(amount = 10) {
+    super();
+    this.type = 'food';
+    this.amount = amount;
+  }
 
-// Utility math helpers -----------------------------------------------------
-export const wrapAngle=a=>{while(a>Math.PI)a-=Math.PI*2;while(a<-Math.PI)a+=Math.PI*2;return a};
-export const mod=(x,range)=>((x%range)+range)%range;
-export function dxT(ax,bx){
-  // toroidal distance in x
-  let d=bx-ax,w=canvas.width;if(d>w/2)d-=w;else if(d<-w/2)d+=w;return d;
+  getColor() {
+    // The greener, the more food: amount 0 => rgb(51,51,51), max (say 20) => rgb(0,255,0)
+    const maxAmount = 20;
+    const green = Math.min(255, Math.round((this.amount / maxAmount) * 255));
+    // Fade from dark to green
+    return `rgb(0,${green},0)`;
+  }
 }
-export function dyT(ay,by){
-  // toroidal distance in y
-  let d=by-ay,h=canvas.height;if(d>h/2)d-=h;else if(d<-h/2)d+=h;return d;
-}
-export const dist2T=(ax,ay,bx,by)=>{
-  const dx=dxT(ax,bx),dy=dyT(ay,by);return dx*dx+dy*dy;
-};
 
-// road pheromones -----------------------------------------------------------
-export function gridIdx(x,y){
-  const xi=Math.floor(mod(x,canvas.width)/CONFIG.GRID_CELL);
-  const yi=Math.floor(mod(y,canvas.height)/CONFIG.GRID_CELL);
-  return xi+yi*gridW;
-}
-export function depositRoad(x,y,a){
-  // drop a road pheromone where the ant is walking
-  const i=gridIdx(x,y);roads[i]=Math.min(1,roads[i]+a);
-}
-export function senseRoad(x,y){
-  // examine neighbouring cells to see which direction contains the
-  // strongest road pheromone concentration
-  const xi=Math.floor(mod(x,canvas.width)/CONFIG.GRID_CELL);
-  const yi=Math.floor(mod(y,canvas.height)/CONFIG.GRID_CELL);
-  let best=0,dir=0;
-  for(let dx=-1;dx<=1;dx++){
-    for(let dy=-1;dy<=1;dy++){
-      if(!dx&&!dy)continue;
-      const nx=(xi+dx+gridW)%gridW,ny=(yi+dy+gridH)%gridH,v=roads[nx+ny*gridW];
-      if(v>best){best=v;dir=Math.atan2(dy,dx);}
+export class PheroCell {
+  constructor(type = null) {
+    this.type = type; // e.g., 'food', null means no smell
+    this.intensity = 0;
+    this.maxIntensity = 100;
+    this.decayRate = 0.99999;
+  }
+
+  add(amount, type = 'food') {
+    // If adding a new type, overwrite if intensity is low or type matches
+    if (this.type === null || this.type === type || this.intensity < 0.01) {
+      this.type = type;
+      this.intensity = Math.min(this.maxIntensity, this.intensity + amount);
+    }
+    // If another type is present and intensity is high, ignore for now (could be extended)
+  }
+
+  decay() {
+    this.intensity *= this.decayRate;
+    if (this.intensity < 0.01) {
+      this.intensity = 0;
+      this.type = null;
     }
   }
-  return{best,dir};
+
+  getColor() {
+    // Visualize as blue overlay for 'food', can extend for other types
+    if (this.type === 'food') {
+      const blue = Math.min(255, Math.round(this.intensity * 2.5));
+      return `rgba(0,0,255,${blue / 255 * 0.5})`;
+    }
+    // Add more smell types here as needed
+    return 'rgba(0,0,0,0)';
+  }
 }
-export function decayRoads(){
-  for(let i=0;i<roads.length;i++) roads[i]*=CONFIG.ROAD_DECAY;
-}
-export function drawRoads(){
-  for(let i=0;i<roads.length;i++){
-    const v=roads[i];
-    if(v>0.05){
-      const x=(i%gridW)*CONFIG.GRID_CELL;
-      const y=Math.floor(i/gridW)*CONFIG.GRID_CELL;
-      ctx.fillStyle=`rgba(100,100,100,${v})`;
-      ctx.fillRect(x,y,CONFIG.GRID_CELL,CONFIG.GRID_CELL);
+
+export class Wind {
+  constructor() {
+    this.directions = [
+      [1, 0], [-1, 0], [0, 1], [0, -1]
+    ];
+    this.dir = this.randomDirection();
+    this.strength = this.randomStrength();
+    this.changeInterval = this.randomInterval();
+    this.counter = 0;
+  }
+
+  randomDirection() {
+    return this.directions[Math.floor(Math.random() * this.directions.length)];
+  }
+
+  randomStrength() {
+    // Strength between 0.2 and 0.7
+    return 0.2 + Math.random() * 0.5;
+  }
+
+  randomInterval() {
+    // Change interval between 80 and 150 ticks
+    return Math.floor(80 + Math.random() * 70);
+  }
+
+  tick() {
+    this.counter++;
+    if (this.counter > this.changeInterval) {
+      this.dir = this.randomDirection();
+      this.strength = this.randomStrength();
+      this.changeInterval = this.randomInterval();
+      this.counter = 0;
     }
   }
 }
 
-// pheromone maps -----------------------------------------------------------
-// get array index for pheromone cell
-function pherIdx(x,y){
-  const xi=Math.floor(mod(x,canvas.width)/CONFIG.GRID_CELL);
-  const yi=Math.floor(mod(y,canvas.height)/CONFIG.GRID_CELL);
-  return xi+yi*gridW;
-}
-export function depositFoodPheromone(x,y,a){
-  // leave a food pheromone on the map
-  const i=pherIdx(x,y);pherFood[i]=Math.min(1,pherFood[i]+a);
-}
-export function depositStonePheromone(x,y,a){
-  // leave a stone pheromone on the map
-  const i=pherIdx(x,y);pherStone[i]=Math.min(1,pherStone[i]+a);
-}
-// scan neighbouring cells for the strongest food pheromone
-export function senseFoodPheromone(x,y){
-  // check nearby cells for food pheromone
-  const xi=Math.floor(mod(x,canvas.width)/CONFIG.GRID_CELL);
-  const yi=Math.floor(mod(y,canvas.height)/CONFIG.GRID_CELL);
-  let best=0,dir=0;
-  for(let dx=-1;dx<=1;dx++){
-    for(let dy=-1;dy<=1;dy++){
-      if(!dx&&!dy)continue;
-      const nx=(xi+dx+gridW)%gridW,ny=(yi+dy+gridH)%gridH,v=pherFood[nx+ny*gridW];
-      if(v>best){best=v;dir=Math.atan2(dy,dx);}
-    }
-  }
-  return{best,dir};
-}
-// scan neighbouring cells for the strongest stone pheromone
-export function senseStonePheromone(x,y){
-  // check nearby cells for stone pheromone
-  const xi=Math.floor(mod(x,canvas.width)/CONFIG.GRID_CELL);
-  const yi=Math.floor(mod(y,canvas.height)/CONFIG.GRID_CELL);
-  let best=0,dir=0;
-  for(let dx=-1;dx<=1;dx++){
-    for(let dy=-1;dy<=1;dy++){
-      if(!dx&&!dy)continue;
-      const nx=(xi+dx+gridW)%gridW,ny=(yi+dy+gridH)%gridH,v=pherStone[nx+ny*gridW];
-      if(v>best){best=v;dir=Math.atan2(dy,dx);}
-    }
-  }
-  return{best,dir};
-}
-// fade pheromones each tick
-export function decayPheromones(){
-  for(let i=0;i<pherFood.length;i++){
-    pherFood[i]*=CONFIG.PHER_DECAY;
-    pherStone[i]*=CONFIG.PHER_DECAY;
-  }
-}
-// render pheromone heatmaps
-export function drawPheromones(){
-  for(let i=0;i<pherFood.length;i++){
-    const vf=pherFood[i],vs=pherStone[i];
-    if(vf>0.05||vs>0.05){
-      const x=(i%gridW)*CONFIG.GRID_CELL;
-      const y=Math.floor(i/gridW)*CONFIG.GRID_CELL;
-      if(vf>0.05){
-        ctx.fillStyle=`rgba(255,215,0,${vf})`;
-        ctx.fillRect(x,y,CONFIG.GRID_CELL,CONFIG.GRID_CELL);
-      }
-      if(vs>0.05){
-        ctx.fillStyle=`rgba(180,180,180,${vs})`;
-        ctx.fillRect(x,y,CONFIG.GRID_CELL,CONFIG.GRID_CELL);
+export class World {
+  constructor(width, height) {
+    this.width = width;
+    this.height = height;
+    // Each cell: { world: WorldCell, phero: PheroCell }
+    this.grid = Array.from({ length: height }, () =>
+      Array.from({ length: width }, () => ({
+        world: new WorldCell(),
+        phero: new PheroCell()
+      }))
+    );
+
+    // Place 50 FoodCells at random locations
+    const placed = new Set();
+    let count = 0;
+    while (count < 50) {
+      const fx = Math.floor(Math.random() * this.width);
+      const fy = Math.floor(Math.random() * this.height);
+      const key = `${fx},${fy}`;
+      if (!placed.has(key)) {
+        this.grid[fy][fx].world = new FoodCell(Math.floor(Math.random() * 20) + 1);
+        placed.add(key);
+        count++;
       }
     }
-  }
-}
 
-// obstacle grid ------------------------------------------------------------
-function markCircle(ob){
-  const cell=CONFIG.GRID_CELL;
-  const minX=Math.floor((ob.x-ob.r)/cell);
-  const maxX=Math.floor((ob.x+ob.r)/cell);
-  const minY=Math.floor((ob.y-ob.r)/cell);
-  const maxY=Math.floor((ob.y+ob.r)/cell);
-  for(let xi=minX;xi<=maxX;xi++){
-    for(let yi=minY;yi<=maxY;yi++){
-      const gx=mod(xi,gridW),gy=mod(yi,gridH);
-      const cx=gx*cell+cell/2,cy=gy*cell+cell/2;
-      const dx=dxT(cx,ob.x),dy=dyT(cy,ob.y);
-      if(dx*dx+dy*dy<=ob.r*ob.r) obstacles[gx+gy*gridW]=1;
+    this.wind = new Wind();
+  }
+
+  isInside(x, y) {
+    return x >= 0 && y >= 0 && x < this.width && y < this.height;
+  }
+
+  getCell(x, y) {
+    return this.isInside(x, y) ? this.grid[y][x] : null;
+  }
+
+  tick() {
+    // Update wind
+    this.wind.tick();
+
+    // 1. Food emits smell
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        const cell = this.grid[y][x];
+        if (cell.world.type === 'food' && cell.world.amount > 0) {
+          cell.phero.add(10, 'food'); // Specify smell type
+        }
+      }
+    }
+
+    // 2. Propagate smell (wind-biased diffusion)
+    const newPheros = Array.from({ length: this.height }, () =>
+      Array.from({ length: this.width }, () => ({ type: null, intensity: 0 }))
+    );
+
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        const cell = this.grid[y][x];
+        const dirs = [
+          [0, -1], [1, 0], [0, 1], [-1, 0]
+        ];
+        const windIndex = dirs.findIndex(([dx, dy]) =>
+          dx === this.wind.dir[0] && dy === this.wind.dir[1]
+        );
+        const share = cell.phero.intensity * 0.2;
+        const remain = cell.phero.intensity * 0.8;
+        // Add remain to self
+        if (cell.phero.type) {
+          newPheros[y][x].type = cell.phero.type;
+          newPheros[y][x].intensity += remain;
+        }
+        // Distribute share to neighbors, wind gets extra
+        for (let i = 0; i < dirs.length; i++) {
+          const [dx, dy] = dirs[i];
+          const nx = x + dx, ny = y + dy;
+          if (this.isInside(nx, ny)) {
+            let portion = share / 4;
+            if (i === windIndex) {
+              portion += share * this.wind.strength * 0.5;
+            } else {
+              portion -= share * this.wind.strength * 0.5 / 3;
+            }
+            if (cell.phero.type) {
+              // If type is already set, add to it; otherwise, set it
+              if (
+                newPheros[ny][nx].type === null ||
+                newPheros[ny][nx].type === cell.phero.type ||
+                newPheros[ny][nx].intensity < 0.01
+              ) {
+                newPheros[ny][nx].type = cell.phero.type;
+                newPheros[ny][nx].intensity += Math.max(0, portion);
+              }
+              // If another type is present, ignore for now (could be extended)
+            }
+          }
+        }
+      }
+    }
+
+    // 3. Update intensities and decay
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        const phero = this.grid[y][x].phero;
+        const { type, intensity } = newPheros[y][x];
+        phero.type = type;
+        phero.intensity = intensity;
+        phero.decay();
+      }
     }
   }
-}
 
-function markLine(ob){
-  const cell=CONFIG.GRID_CELL;
-  const minX=Math.floor((Math.min(ob.x1,ob.x2)-ob.w/2)/cell);
-  const maxX=Math.floor((Math.max(ob.x1,ob.x2)+ob.w/2)/cell);
-  const minY=Math.floor((Math.min(ob.y1,ob.y2)-ob.w/2)/cell);
-  const maxY=Math.floor((Math.max(ob.y1,ob.y2)+ob.w/2)/cell);
-  const vx=ob.x2-ob.x1,vy=ob.y2-ob.y1;
-  const len2=vx*vx+vy*vy;
-  for(let xi=minX;xi<=maxX;xi++){
-    for(let yi=minY;yi<=maxY;yi++){
-      const gx=mod(xi,gridW),gy=mod(yi,gridH);
-      const cx=gx*cell+cell/2,cy=gy*cell+cell/2;
-      let t=((cx-ob.x1)*vx+(cy-ob.y1)*vy)/len2;
-      t=Math.max(0,Math.min(1,t));
-      const px=ob.x1+vx*t,py=ob.y1+vy*t;
-      const dx=dxT(cx,px),dy=dyT(cy,py);
-      const inHole=ob.holes&&ob.holes.some(h=>t>=h.start&&t<=h.end);
-      if(!inHole&&dx*dx+dy*dy<=(ob.w/2)*(ob.w/2)) obstacles[gx+gy*gridW]=1;
-    }
-  }
-}
-
-export function updateObstacleGrid(obs){
-  obstacles.fill(0);
-  for(const ob of obs){
-    if(ob.type==='circle') markCircle(ob); else markLine(ob);
-  }
-  obstacleDirty=false;
-}
-
-export function markObstacleDirty(){
-  obstacleDirty=true;
-}
-
-export function consumeObstacleDirty(){
-  const d=obstacleDirty;
-  obstacleDirty=false;
-  return d;
-}
-
-export function isBlocked(x,y){
-  return obstacles[gridIdx(x,y)]>0;
-}
-
-// render obstacles based solely on the grid
-export function drawObstacles(){
-  ctx.fillStyle="#444";
-  for(let i=0;i<obstacles.length;i++){
-    if(!obstacles[i]) continue;
-    const x=(i%gridW)*CONFIG.GRID_CELL;
-    const y=Math.floor(i/gridW)*CONFIG.GRID_CELL;
-    ctx.fillRect(x,y,CONFIG.GRID_CELL,CONFIG.GRID_CELL);
-  }
-}
-
-// resource grid -------------------------------------------------------------
-export function addResource(x,y,type){
-  const i=gridIdx(x,y);
-  if(type==='food') resFood[i]++; else resStone[i]++;
-}
-
-export function removeResource(x,y,type){
-  const i=gridIdx(x,y);
-  if(type==='food'){ if(resFood[i]>0) resFood[i]--; }
-  else{ if(resStone[i]>0) resStone[i]--; }
-}
-
-export function resourceAt(x,y,type){
-  const i=gridIdx(x,y);
-  return type==='food'? resFood[i] : resStone[i];
-}
-
-export function findResourceNear(x,y,rad,type){
-  const cell=CONFIG.GRID_CELL;
-  const steps=Math.ceil(rad/cell);
-  const xi=Math.floor(mod(x,canvas.width)/cell);
-  const yi=Math.floor(mod(y,canvas.height)/cell);
-  const r2=rad*rad;
-  for(let dx=-steps;dx<=steps;dx++){
-    for(let dy=-steps;dy<=steps;dy++){
-      const nx=(xi+dx+gridW)%gridW;
-      const ny=(yi+dy+gridH)%gridH;
-      const cx=nx*cell+cell/2;
-      const cy=ny*cell+cell/2;
-      const d2=dxT(x,cx)**2+dyT(y,cy)**2;
-      if(d2>r2) continue;
-      const idx=nx+ny*gridW;
-      const count=type==='food'?resFood[idx]:resStone[idx];
-      if(count>0) return {cx,cy,idx};
-    }
-  }
-  return null;
-}
-
-export function updateResourceGrid(piles){
-  resFood.fill(0); resStone.fill(0);
-  for(const p of piles){
-    for(const [idx,count] of p.cells){
-      if(p.type==='food') resFood[idx]+=count; else resStone[idx]+=count;
-    }
-  }
-}
-
-export function drawResources(){
-  for(let i=0;i<resFood.length;i++){
-    if(resFood[i]>0){
-      const x=(i%gridW)*CONFIG.GRID_CELL;
-      const y=Math.floor(i/gridW)*CONFIG.GRID_CELL;
-      ctx.fillStyle='rgba(255,215,0,0.9)';
-      ctx.fillRect(x,y,CONFIG.GRID_CELL,CONFIG.GRID_CELL);
-    }
-  }
-  for(let i=0;i<resStone.length;i++){
-    if(resStone[i]>0){
-      const x=(i%gridW)*CONFIG.GRID_CELL;
-      const y=Math.floor(i/gridW)*CONFIG.GRID_CELL;
-      ctx.fillStyle='rgba(200,200,200,0.9)';
-      ctx.fillRect(x,y,CONFIG.GRID_CELL,CONFIG.GRID_CELL);
+  draw(ctx, ant) {
+    const cellSize = ctx.canvas.width / this.width;
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        const cell = this.grid[y][x];
+        const { world, phero } = cell;
+        // Draw world cell only if not empty or if ant is present
+        if (ant.x === x && ant.y === y) {
+          ctx.fillStyle = '#ff4444';
+          ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+        } else if (world && world.type !== 'empty') {
+          ctx.fillStyle = world.getColor();
+          ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+        }
+        // Overlay smell if present
+        if (phero.intensity > 0) {
+          ctx.fillStyle = phero.getColor();
+          ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+        }
+      }
     }
   }
 }
