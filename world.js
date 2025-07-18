@@ -52,10 +52,10 @@ export class PheroCell {
   }
 
   getColor() {
-    // Visualize as blue overlay for 'food', can extend for other types
+    // Visualize as green overlay for 'food', can extend for other types
     if (this.type === 'food') {
-      const blue = Math.min(255, Math.round(this.intensity * 2.5));
-      return `rgba(0,0,255,${blue / 255 * 0.5})`;
+      const green = Math.min(255, Math.round(this.intensity * 2.5));
+      return `rgba(0,255,0,${green / 255 * 0.5})`;
     }
     // Add more smell types here as needed
     return 'rgba(0,0,0,0)';
