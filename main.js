@@ -40,7 +40,7 @@ window.addEventListener('resize', resizeCanvas);
 function gameLoop() {
   world.tick();
   ants.forEach(ant => ant.update());
-  world.draw(ctx, ants);
+  world.draw(ctx, ants, window.enabledPheromones); // Pass enabled pheromones
   requestAnimationFrame(gameLoop);
 }
 gameLoop();

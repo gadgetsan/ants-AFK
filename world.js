@@ -1,4 +1,19 @@
 // world.js
+import {
+  PheromoneType
+} from './pheromones/PheromoneType.js';
+import {
+  PHEROMONE_TYPES
+} from './pheromones/types.js';
+import {
+  renderPheromoneCheckboxes
+} from './UI.js';
+
+// Helper to get PheromoneType by key
+function getPheromoneTypeByKey(key) {
+  return PHEROMONE_TYPES.find(pt => pt.key === key);
+}
+
 export class WorldCell {
   constructor() {
     this.type = 'empty';
@@ -52,12 +67,11 @@ export class PheroCell {
   }
 
   getColor() {
-    // Visualize as green overlay for 'food', can extend for other types
-    if (this.type === 'food') {
-      const green = Math.min(255, Math.round(this.intensity * 2.5));
-      return `rgba(0,255,0,${green / 255 * 0.5})`;
+    if (!this.type || this.intensity <= 0) return 'rgba(0,0,0,0)';
+    const pheroType = getPheromoneTypeByKey(this.type);
+    if (pheroType) {
+      return pheroType.getColor(this.intensity);
     }
-    // Add more smell types here as needed
     return 'rgba(0,0,0,0)';
   }
 }
@@ -144,6 +158,33 @@ export class World {
     }
 
     this.wind = new Wind();
+    this.maxSmellDelta = 1; // Only adjacent cells (including self)
+
+    // Add pheromone types to instance
+    this.PHEROMONE_TYPES = PHEROMONE_TYPES.map(pt => pt.key);
+
+    // Render UI checkboxes after pheromone types are ready
+    renderPheromoneCheckboxes(this.PHEROMONE_TYPES);
+
+    this.frameDrawCounter = 0; // Add frame counter
+  }
+
+  updatePheroMaxIntensities() {
+    // Compute max intensity for each pheromone type and store in each type
+    for (const pt of PHEROMONE_TYPES) {
+      pt.maxIntensity = 0;
+    }
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        const phero = this.grid[y][x].phero;
+        if (phero.type) {
+          const pt = getPheromoneTypeByKey(phero.type);
+          if (pt && phero.intensity > pt.maxIntensity) {
+            pt.maxIntensity = phero.intensity;
+          }
+        }
+      }
+    }
   }
 
   isInside(x, y) {
@@ -152,6 +193,19 @@ export class World {
 
   getCell(x, y) {
     return this.isInside(x, y) ? this.grid[y][x] : null;
+  }
+
+  getSmell(objWithLocation, dx = 0, dy = 0) {
+    // objWithLocation must have getLocation() returning {x, y}
+    if (Math.abs(dx) > this.maxSmellDelta || Math.abs(dy) > this.maxSmellDelta) return null;
+    const {
+      x,
+      y
+    } = objWithLocation.getLocation();
+    const nx = x + dx,
+      ny = y + dy;
+    if (!this.isInside(nx, ny)) return null;
+    return this.grid[ny][nx].phero;
   }
 
   placeNest(x, y, color) {
@@ -168,6 +222,55 @@ export class World {
       if (this.isInside(nx, ny)) {
         this.grid[ny][nx].world = new NestCell(color);
       }
+    }
+  }
+
+  tryPickupFood(x, y) {
+    // Check adjacent cells (including self) for food
+    const directions = [{
+        dx: 0,
+        dy: 0
+      },
+      {
+        dx: 0,
+        dy: -1
+      },
+      {
+        dx: 0,
+        dy: 1
+      },
+      {
+        dx: -1,
+        dy: 0
+      },
+      {
+        dx: 1,
+        dy: 0
+      }
+    ];
+    for (const {
+        dx,
+        dy
+      } of directions) {
+      const nx = x + dx,
+        ny = y + dy;
+      if (this.isInside(nx, ny)) {
+        const cell = this.grid[ny][nx];
+        if (cell.world.type === 'food' && cell.world.amount > 0) {
+          cell.world.amount -= 1;
+          return {
+            x: nx,
+            y: ny
+          };
+        }
+      }
+    }
+    return null;
+  }
+
+  layPheromone(x, y, type, intensity) {
+    if (this.isInside(x, y)) {
+      this.grid[y][x].phero.add(intensity, type);
     }
   }
 
@@ -260,9 +363,16 @@ export class World {
     }
   }
 
-  draw(ctx, ants) {
+  draw(ctx, ants, enabledPheromones = null) {
     const cellSize = ctx.canvas.width / this.width;
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+    // Update pheromone max intensities every 10 frames
+    this.frameDrawCounter++;
+    if (this.frameDrawCounter % 10 === 0) {
+      this.updatePheroMaxIntensities();
+    }
+
     for (let y = 0; y < this.height; y++) {
       for (let x = 0; x < this.width; x++) {
         const cell = this.grid[y][x];
@@ -275,9 +385,14 @@ export class World {
           ctx.fillStyle = world.getColor();
           ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
         }
-        // Overlay smell if present
-        if (phero.intensity > 0) {
-          ctx.fillStyle = phero.getColor();
+        // Overlay smell if present and enabled
+        if (
+          phero.intensity > 0 &&
+          (!enabledPheromones || enabledPheromones.has(phero.type))
+        ) {
+          const pt = getPheromoneTypeByKey(phero.type);
+          const maxIntensity = pt ? pt.maxIntensity || phero.maxIntensity : 0;
+          ctx.fillStyle = pt ? pt.getColor(phero.intensity, maxIntensity) : 'rgba(0,0,0,0)';
           ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
         }
       }
